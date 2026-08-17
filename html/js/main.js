@@ -25,14 +25,14 @@ function SetState(id) {
 }
 
 function Resize() {
-	const w = innerWidth
-	const h = innerHeight
+	const w = window.innerWidth
+	const h = window.innerHeight
 	canvas.width = w
 	canvas.height = h
 	gl.viewport(0, 0, w, h)
 	SetCameraViewport(camera, w, h)
 }
-addEventListener('resize', Resize)
+document.addEventListener('resize', Resize)
 Resize()
 
 function Frame(now) {
