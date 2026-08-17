@@ -111,7 +111,7 @@ function CreateSphereMesh(gl, latBands = 12, lonBands = 16) {
 		for (let lon = 0; lon < lonBands; lon++) {
 			const a = lat * (lonBands + 1) + lon
 			const b = a + lonBands + 1
-			indices.push(a, b, a + 1, b, b + 1, a + 1)
+			indices.push(a, a + 1, b, b, a + 1, b + 1)
 		}
 	}
 
