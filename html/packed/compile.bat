@@ -1,0 +1,1 @@
+google-closure-compiler -O ADVANCED ..\js\gl.js ..\js\input.js ..\js\camera.js ..\js\entities.js ..\js\ui.js ..\js\scenes.js ..\js\main.js --js_output_file bundle.min.js
