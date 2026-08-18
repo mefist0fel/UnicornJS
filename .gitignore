@@ -11,6 +11,7 @@ dist/
 html/packed/bundle.js
 html/packed/bundle.min.js
 html/packed/index.html
+html/packed/game.zip
 
 # Compiled Java class files
 *.class

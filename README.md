@@ -23,10 +23,10 @@
 ## Сборка релиза
 
 ```
-python html/packed/build.py         # склеить html/js/*.js в один bundle.js + packed/index.html (неминифицированный)
-# вручную: скормить html/packed/bundle.js внешнему минификатору,
-# результат сохранить в html/packed/bundle.min.js
-python html/packed/build.py --pack  # собрать финальный packed/index.html из bundle.min.js + dist/game.zip + отчёт по размеру
+python html/packed/build.py                # полный цикл: bundle -> минификация (локальный
+                                             # google-closure-compiler) -> packed/index.html ->
+                                             # game.zip (в packed/ и в dist/) -> отчёт по размеру
+python html/packed/build.py --skip-minify   # быстрая проверка конкатенации, без минификации/zip
 ```
 
 Подробности — в [docs/build.md](docs/build.md).

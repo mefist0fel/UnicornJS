@@ -1,5 +1,5 @@
-// WebGL bootstrap, vec3/mat4 math, shared sphere mesh.
-// See docs/architecture.md - factory functions, flat globals, no classes.
+// WebGL bootstrap, vec3/mat4 math, generic mesh upload.
+// Mesh generation lives in geometry.js. See docs/architecture.md.
 
 function InitGL(canvas) {
 	const gl = canvas.getContext('webgl', { antialias: true })
@@ -22,6 +22,24 @@ function CreateProgram(gl, vsSrc, fsSrc) {
 	gl.attachShader(prog, CompileShader(gl, gl.FRAGMENT_SHADER, fsSrc))
 	gl.linkProgram(prog)
 	return prog
+}
+
+// Uploads a { positions, normals, indices } mesh (see geometry.js) into GL
+// buffers. Each object gets its own buffers - meshes are not shared/instanced.
+function UploadMesh(gl, mesh) {
+	const posBuf = gl.createBuffer()
+	gl.bindBuffer(gl.ARRAY_BUFFER, posBuf)
+	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(mesh.positions), gl.STATIC_DRAW)
+
+	const normBuf = gl.createBuffer()
+	gl.bindBuffer(gl.ARRAY_BUFFER, normBuf)
+	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(mesh.normals), gl.STATIC_DRAW)
+
+	const idxBuf = gl.createBuffer()
+	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, idxBuf)
+	gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(mesh.indices), gl.STATIC_DRAW)
+
+	return { posBuf, normBuf, idxBuf, count: mesh.indices.length }
 }
 
 // ---- vec3 ----
@@ -80,52 +98,33 @@ function Mat4LookAt(eye, target, up) {
 	])
 }
 
-// Sphere entities never rotate, so a plain translate+uniform-scale model
-// matrix is enough - no general TRS compose needed.
-function Mat4Sphere(position, radius) {
+// Rotation matrix from three orthonormal world-space axes (columns).
+// Used by camera.js to expose its orientation as a real matrix, see docs/camera.md.
+function Mat4FromBasis(right, up, back) {
 	return new Float32Array([
-		radius, 0, 0, 0,
-		0, radius, 0, 0,
-		0, 0, radius, 0,
-		position[0], position[1], position[2], 1
+		right[0], right[1], right[2], 0,
+		up[0], up[1], up[2], 0,
+		back[0], back[1], back[2], 0,
+		0, 0, 0, 1
 	])
 }
 
-// One shared unit-sphere mesh, reused (different model matrix) for every entity.
-function CreateSphereMesh(gl, latBands = 12, lonBands = 16) {
-	const positions = []
-	const normals = []
-	const indices = []
-	for (let lat = 0; lat <= latBands; lat++) {
-		const theta = lat * Math.PI / latBands
-		const st = Math.sin(theta), ct = Math.cos(theta)
-		for (let lon = 0; lon <= lonBands; lon++) {
-			const phi = lon * 2 * Math.PI / lonBands
-			const sp = Math.sin(phi), cp = Math.cos(phi)
-			const x = cp * st, y = ct, z = sp * st
-			positions.push(x, y, z)
-			normals.push(x, y, z)
-		}
-	}
-	for (let lat = 0; lat < latBands; lat++) {
-		for (let lon = 0; lon < lonBands; lon++) {
-			const a = lat * (lonBands + 1) + lon
-			const b = a + lonBands + 1
-			indices.push(a, a + 1, b, b, a + 1, b + 1)
-		}
-	}
+// Transforms a direction (w=0, translation ignored) by a mat4.
+function Mat4MulDir(m, v) {
+	return [
+		m[0] * v[0] + m[4] * v[1] + m[8] * v[2],
+		m[1] * v[0] + m[5] * v[1] + m[9] * v[2],
+		m[2] * v[0] + m[6] * v[1] + m[10] * v[2]
+	]
+}
 
-	const posBuf = gl.createBuffer()
-	gl.bindBuffer(gl.ARRAY_BUFFER, posBuf)
-	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW)
-
-	const normBuf = gl.createBuffer()
-	gl.bindBuffer(gl.ARRAY_BUFFER, normBuf)
-	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normals), gl.STATIC_DRAW)
-
-	const idxBuf = gl.createBuffer()
-	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, idxBuf)
-	gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW)
-
-	return { posBuf, normBuf, idxBuf, count: indices.length }
+// Objects never rotate, so a plain translate+uniform-scale model matrix is
+// enough - no general TRS compose needed.
+function Mat4TranslateScale(position, scale) {
+	return new Float32Array([
+		scale, 0, 0, 0,
+		0, scale, 0, 0,
+		0, 0, scale, 0,
+		position[0], position[1], position[2], 1
+	])
 }
