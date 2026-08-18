@@ -79,6 +79,23 @@ function CreateCubeObject(gl, position, size, color) {
 	return CreateMeshObject(gl, position, GenCubeMesh(), size, color)
 }
 
+// Ship marker - same "cube" shape as CreateCubeObject, but built from the
+// string-encoded mesh (see geometry.js) as its one real use in the game.
+// The encoded cube's corners sit at +-1 rather than +-0.5, hence the extra
+// 0.5 scale factor to match the visual size of a hand-coded cube.
+function CreateShipObject(gl, position, color) {
+	return CreateMeshObject(gl, position, GenEncodedCubeMesh(), 0.5, color)
+}
+
+// Removes every object in `list` from ctx.objects - states use this in
+// OnExit to clean up exactly what they added, see docs/architecture.md.
+function RemoveObjects(ctx, list) {
+	for (let i = 0; i < list.length; i++) {
+		const idx = ctx.objects.indexOf(list[i])
+		if (idx !== -1) ctx.objects.splice(idx, 1)
+	}
+}
+
 // pick system: nearest object with onClick+radius hit by the ray, or null
 function PickObject(camera, ndcX, ndcY, objects) {
 	const ray = camera.screenPointToRay(ndcX, ndcY)

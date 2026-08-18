@@ -12,11 +12,12 @@ let lastTime = 0
 
 InitObjectRenderer(ctx.gl)
 InitUI()
+InitResHud()
 
 // Switching state is just swapping currentState for another state instance;
 // this wrapper is what makes that swap also call OnExit/OnEnter. It does
 // *not* touch ctx.objects - states clean up their own objects if they want to
-// (see RemoveObjects in world.js), the object graph itself is never reset.
+// (see RemoveObjects in objects.js), the object graph itself is never reset.
 function SetState(next) {
 	if (currentState && currentState.OnExit) currentState.OnExit(ctx)
 	ClearUI()
@@ -25,19 +26,23 @@ function SetState(next) {
 }
 
 function Resize() {
-	const w = window.innerWidth
-	const h = window.innerHeight
+	const w = canvas.clientWidth
+	const h = canvas.clientHeight
 	canvas.width = w
 	canvas.height = h
 	ctx.gl.viewport(0, 0, w, h)
 	SetCameraViewport(ctx.camera, w, h)
 }
-window.addEventListener('resize', Resize)
 Resize()
 
 function Frame(now) {
 	const dt = Math.min(0.05, (now - lastTime) / 1000)
 	lastTime = now
+
+	// Checked every frame instead of only on a 'resize' event - covers cases
+	// the event doesn't fire for (devtools panel toggling, some embedders),
+	// and it's cheap since it's just two integer comparisons.
+	if (canvas.width !== canvas.clientWidth || canvas.height !== canvas.clientHeight) Resize()
 
 	currentState.OnUpdate(ctx, dt)
 
