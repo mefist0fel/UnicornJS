@@ -14,9 +14,13 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 #ui>.center{top:50%;transform:translate(-50%,-50%)}
 #ui>.bottomleft{left:4vmin;bottom:4vmin;transform:none}
 #ui>.bottomright{left:auto;right:4vmin;bottom:4vmin;transform:none}
+#ui>.barsleft{left:2.5vmin;top:38vmin;transform:none}
+#ui>.barsright{left:auto;right:2.5vmin;top:38vmin;transform:none}
 .panel{padding:2vmin 3vmin;font-size:3vmin;color:#fff;text-align:center;text-shadow:0 0.3vmin 1vmin #000}
-.button{padding:1.5vmin 4vmin;font-size:2.5vmin;color:#fff;background:#ffffff33;border:0.2vmin solid #fff8;border-radius:1vmin;cursor:pointer;user-select:none}
+.button{padding:1.5vmin 4vmin;font-size:2.5vmin;color:#fff;background:#ffffff33;border:0.2vmin solid #fff8;border-radius:1vmin;cursor:pointer;user-select:none;touch-action:none}
 .button:hover{background:#ffffff55}
+.bar{width:3.2vmin;height:26vmin;background:#ffffff22;border:0.2vmin solid #fff6;border-radius:1vmin;overflow:hidden;position:relative}
+.bar>i{position:absolute;bottom:0;left:0;width:100%;display:block}
 #hud{position:fixed;top:2vmin;right:2vmin;color:#fff;font-size:2vmin;text-shadow:0 0.3vmin 1vmin #000;pointer-events:none}
 </style>
 </head>

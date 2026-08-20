@@ -10,7 +10,8 @@
 - [docs/concept.md](docs/concept.md) — концепт игры, игровой цикл, ресурсы, статус
 - [docs/architecture.md](docs/architecture.md) — организация кода: стейт-машина, объекты, конвенции
 - [docs/camera.md](docs/camera.md) — орбитальная камера и её ограничители по сценам
-- [docs/ui.md](docs/ui.md) — система панелей/кнопок (DOM-хак поверх WebGL)
+- [docs/ui.md](docs/ui.md) — система панелей/кнопок/баров (DOM-хак поверх WebGL)
+- [docs/battle.md](docs/battle.md) — боевая система: механика, варианты дизайна, баланс
 - [docs/meshformat.md](docs/meshformat.md) — формат меша, закодированного в строке
 - [docs/build.md](docs/build.md) — сборка, минификация, контроль размера
 

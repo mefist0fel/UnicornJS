@@ -118,13 +118,20 @@ function Mat4MulDir(m, v) {
 	]
 }
 
-// Objects never rotate, so a plain translate+uniform-scale model matrix is
-// enough - no general TRS compose needed.
+// Objects never rotate, so a plain translate+scale model matrix is enough -
+// no general TRS compose needed. `scale` is a number (uniform) in almost
+// every call site; battle_state's laser beam is the one exception that
+// needs a stretched box (long on X, thin on Y/Z) and passes a [sx,sy,sz]
+// array instead - `.length` is enough to tell the two apart since numbers
+// don't have one.
 function Mat4TranslateScale(position, scale) {
+	const sx = scale.length ? scale[0] : scale
+	const sy = scale.length ? scale[1] : scale
+	const sz = scale.length ? scale[2] : scale
 	return new Float32Array([
-		scale, 0, 0, 0,
-		0, scale, 0, 0,
-		0, 0, scale, 0,
+		sx, 0, 0, 0,
+		0, sy, 0, 0,
+		0, 0, sz, 0,
 		position[0], position[1], position[2], 1
 	])
 }
