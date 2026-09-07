@@ -1,27 +1,34 @@
-// Pointer input: independent of camera/state - just raw per-frame data
-// (drag deltas, wheel delta, click position). Ported from the equivalent
-// module in ../js13k_city/html/js/input.js. Applying it (rotating the
-// camera, testing a pick) is each scene's job in its own OnUpdate.
+// Pointer input: independent of camera/state - just raw per-frame data.
+// Ported from ../js13k_city and then reworked for the two-button scheme:
+// RMB drag = orbit, LMB drag = pan, wheel = zoom, LMB tap = pick (see
+// docs/camera.md). Deltas are in NDC units (-1..1 across the viewport) so
+// they don't depend on canvas pixel size; `btn` is the button currently held
+// (0 left, 2 right, -1 none). The context menu is suppressed so RMB is free.
 
 function CreateInput(canvas) {
-	let down = false
-	let lastX = 0
-	let lastY = 0
-	let moved = 0
+	let btn = -1
+	let lastNx = 0
+	let lastNy = 0
+	let lastPxX = 0
+	let lastPxY = 0
+	let movedPx = 0
 
 	const input = {
-		dx: 0,
-		dy: 0,
+		btn: -1,
+		pdx: 0, // pointer delta this frame, NDC x (drag)
+		pdy: 0, // pointer delta this frame, NDC y (drag)
+		px: 0,  // current pointer position, NDC x
+		py: 0,  // current pointer position, NDC y
 		wheel: 0,
 		clicked: false,
 		clickX: 0,
 		clickY: 0,
 
 		// Called once per frame by the game loop after the scene has read
-		// this frame's deltas, so per-frame fields don't leak into the next.
+		// this frame's deltas. btn/px/py persist (they're state, not events).
 		update() {
-			this.dx = 0
-			this.dy = 0
+			this.pdx = 0
+			this.pdy = 0
 			this.wheel = 0
 			this.clicked = false
 		}
@@ -35,33 +42,45 @@ function CreateInput(canvas) {
 		]
 	}
 
+	canvas.addEventListener('contextmenu', e => e.preventDefault())
+
 	canvas.addEventListener('pointerdown', e => {
-		down = true
-		moved = 0
-		lastX = e.clientX
-		lastY = e.clientY
+		btn = e.button
+		input.btn = btn
+		movedPx = 0
+		lastPxX = e.clientX
+		lastPxY = e.clientY
+		const n = ndc(e)
+		lastNx = n[0]
+		lastNy = n[1]
+		input.px = n[0]
+		input.py = n[1]
 		canvas.setPointerCapture(e.pointerId)
 	})
 
 	canvas.addEventListener('pointermove', e => {
-		if (!down) return
-		const dx = e.clientX - lastX
-		const dy = e.clientY - lastY
-		lastX = e.clientX
-		lastY = e.clientY
-		moved += Math.abs(dx) + Math.abs(dy)
-		input.dx += dx
-		input.dy += dy
+		const n = ndc(e)
+		input.px = n[0]
+		input.py = n[1]
+		if (btn < 0) return
+		input.pdx += n[0] - lastNx
+		input.pdy += n[1] - lastNy
+		lastNx = n[0]
+		lastNy = n[1]
+		movedPx += Math.abs(e.clientX - lastPxX) + Math.abs(e.clientY - lastPxY)
+		lastPxX = e.clientX
+		lastPxY = e.clientY
 	})
 
 	canvas.addEventListener('pointerup', e => {
-		down = false
-		if (moved < 6) {
-			const [x, y] = ndc(e)
+		if (btn === 0 && movedPx < 6) {
+			const n = ndc(e)
 			input.clicked = true
-			input.clickX = x
-			input.clickY = y
+			input.clickX = n[0]
+			input.clickY = n[1]
 		}
+		btn = -1
+		input.btn = -1
 	})
 
 	canvas.addEventListener('wheel', e => {

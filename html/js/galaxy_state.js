@@ -1,22 +1,60 @@
-// Galaxy map state: click a star within jump radius to select it (green
-// marker), then the jump button appears. See docs/architecture.md for the
-// state contract and galaxy.js for the generation/caching.
+// Galaxy map: click a star to select it. In-jump-range stars get a green
+// selector + a '>' jump button (spends fuel, plays hyperjump_state); out of
+// range gets a red selector and no jump button (you can still look). A line
+// is drawn from the current star to the selected one, coloured to match. The
+// current star itself selects with a 'V' button - descend into that system
+// with no jump. See docs/architecture.md, galaxy.js for generation/caching.
 
 function CreateGalaxyState() {
 	let mine = []
+	let btn = null
+	let line = null
 	let selected = false
+	let markerAngle = 0
+
+	function reachable(i) {
+		return i === currentStarIndex || StarDist(galaxyStars[currentStarIndex], galaxyStars[i]) <= GALAXY_JUMP_RADIUS
+	}
+
+	function refreshButton(ctx, canReach) {
+		if (btn) { btn.remove(); btn = null }
+		if (selectedStarIndex < 0) return
+		if (selectedStarIndex === currentStarIndex) {
+			btn = CreateButton('V', 'bottomleft', () => SetState(CreateSystemState()))
+		} else if (canReach) {
+			btn = CreateButton('>', 'bottomleft', () => TryJump(ctx))
+		}
+	}
+
+	function setLine(ctx, col) {
+		if (line) {
+			RemoveObjects(ctx, [line])
+			const li = mine.indexOf(line)
+			if (li !== -1) mine.splice(li, 1)
+			line = null
+		}
+		if (selectedStarIndex < 0 || selectedStarIndex === currentStarIndex) return
+		const a = galaxyStars[currentStarIndex]
+		const b = galaxyStars[selectedStarIndex]
+		line = CreateLineObject(ctx.gl, V3(a.x, 0.25, a.z), V3(b.x, 0.25, b.z), col)
+		ctx.objects.push(line)
+		mine.push(line)
+	}
 
 	function selectStar(ctx, i) {
-		if (i === currentStarIndex) return
-		if (StarDist(galaxyStars[currentStarIndex], galaxyStars[i]) > GALAXY_JUMP_RADIUS) return
 		selectedStarIndex = i
-		UpdateGalaxyMarkers()
+		const canReach = reachable(i)
 		if (!selected) {
 			selected = true
-			ctx.objects.push(selectedMarker)
-			mine.push(selectedMarker)
-			CreateButton('>', 'bottomleft', () => TryJump(ctx))
+			for (let m = 0; m < selectedMarker.objs.length; m++) {
+				ctx.objects.push(selectedMarker.objs[m])
+				mine.push(selectedMarker.objs[m])
+			}
 		}
+		const col = canReach ? [0.2, 1, 0.3] : [1, 0.35, 0.3]
+		for (let m = 0; m < selectedMarker.objs.length; m++) selectedMarker.objs[m].color = col
+		setLine(ctx, col)
+		refreshButton(ctx, canReach)
 	}
 
 	function TryJump(ctx) {
@@ -26,27 +64,36 @@ function CreateGalaxyState() {
 		SetState(CreateHyperjumpState(() => {
 			currentStarIndex = target
 			selectedStarIndex = -1
+			GetSystem(ctx, target).parkedPlanet = null
 			return CreateSystemState()
 		}))
 	}
 
 	return {
 		OnEnter(ctx) {
-			ctx.camera.setConstraints({ minPhi: 0.2, maxPhi: Math.PI / 2 - 0.05, minRadius: 12, maxRadius: 40, autoSpeed: 0 })
+			ctx.camera.setConstraints({
+				minPhi: 0.2, maxPhi: Math.PI / 2 - 0.05, minRadius: 12, maxRadius: 40, autoSpeed: 0,
+				panRect: { minX: -14, maxX: 14, minZ: -14, maxZ: 14 }
+			})
+			ctx.camera.position = V3(0, 0, 0)
 			ctx.camera.radius = 26
 			ctx.camera.phi = 1.0
 
-			UpdateGalaxyMarkers()
+			markerAngle = 0
+			selectedStarIndex = -1
+			selected = false
+			line = null
+			UpdateGalaxyMarkers(markerAngle)
 			mine = galaxyStars.map(s => s.object)
-			mine.push(currentMarker)
+			for (let m = 0; m < currentMarker.objs.length; m++) mine.push(currentMarker.objs[m])
 			for (let i = 0; i < mine.length; i++) ctx.objects.push(mine[i])
 
 			for (let i = 0; i < galaxyStars.length; i++) {
 				galaxyStars[i].object.onClick = () => selectStar(ctx, i)
 			}
 
-			selected = false
-			CreatePanel('Galaxy map - select a nearby star, then jump', 'top')
+			btn = null
+			CreatePanel('Galaxy map - green = in range, then jump', 'top')
 		},
 
 		OnExit(ctx) {
@@ -54,9 +101,11 @@ function CreateGalaxyState() {
 		},
 
 		OnUpdate(ctx, dt) {
-			ctx.camera.rotate(-ctx.input.dx * 0.005, -ctx.input.dy * 0.005)
-			ctx.camera.zoom(ctx.input.wheel * 0.01)
-			ctx.camera.update(dt)
+			ApplyCameraInput(ctx, dt)
+
+			markerAngle += dt * GALAXY_MARKER_SPEED
+			UpdateGalaxyMarkers(markerAngle)
+
 			if (ctx.input.clicked) {
 				const hit = PickObject(ctx.camera, ctx.input.clickX, ctx.input.clickY, ctx.objects)
 				if (hit && hit.onClick) hit.onClick()

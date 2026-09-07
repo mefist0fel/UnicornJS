@@ -2,7 +2,11 @@
 // orbits - where the "center of coordinates" sits) plus an offset and a
 // rotation matrix: eye = position + rotMat * offset. theta/phi/radius are
 // the control state (driven by input/auto-rotate) that rotMat/offset are
-// rebuilt from every update(). See docs/camera.md for the reasoning.
+// rebuilt from every update(). RMB drag orbits (vertical inverted), LMB drag
+// pans `position` along the y=0 ground plane, clamped to panRect (an empty
+// Rect pins the camera at the center). See docs/camera.md for the reasoning.
+
+const ZERO_RECT = { minX: 0, maxX: 0, minZ: 0, maxZ: 0 }
 
 function CreateCamera() {
 	const cam = {
@@ -17,20 +21,22 @@ function CreateCamera() {
 		minRadius: 3,
 		maxRadius: 20,
 		autoSpeed: 0,
+		panRect: ZERO_RECT,
 		fov: 50 * Math.PI / 180,
 		aspect: 1,
 		near: 0.1,
 		far: 200,
 
 		// Called by state OnEnter() when entering a scene - swaps the limits,
-		// does not teleport the camera (out-of-range phi/radius just clamp
-		// on the next update()).
+		// does not teleport the camera (out-of-range phi/radius/position just
+		// clamp on the next update()).
 		setConstraints(c) {
 			this.minPhi = c.minPhi
 			this.maxPhi = c.maxPhi
 			this.minRadius = c.minRadius
 			this.maxRadius = c.maxRadius
 			this.autoSpeed = c.autoSpeed || 0
+			this.panRect = c.panRect || ZERO_RECT
 		},
 
 		rotate(dTheta, dPhi) {
@@ -42,12 +48,34 @@ function CreateCamera() {
 			this.radius += dRadius
 		},
 
+		// Move the orbit center so the ground point grabbed by prevNDC ends up
+		// under curNDC - a "drag the map" pan. Both rays are intersected with
+		// the y=0 plane; if either misses (looking at/above the horizon) the
+		// frame's pan is skipped. Result is clamped to panRect.
+		panFromScreen(prev, cur) {
+			const a = planeHit(this.screenPointToRay(prev[0], prev[1]))
+			const b = planeHit(this.screenPointToRay(cur[0], cur[1]))
+			if (!a || !b) return
+			this.position[0] += a[0] - b[0]
+			this.position[2] += a[2] - b[2]
+			this.clampPan()
+		},
+
+		clampPan() {
+			const r = this.panRect
+			if (this.position[0] < r.minX) this.position[0] = r.minX
+			if (this.position[0] > r.maxX) this.position[0] = r.maxX
+			if (this.position[2] < r.minZ) this.position[2] = r.minZ
+			if (this.position[2] > r.maxZ) this.position[2] = r.maxZ
+		},
+
 		update(dt) {
 			if (this.autoSpeed) this.theta += this.autoSpeed * dt
 			if (this.phi < this.minPhi) this.phi = this.minPhi
 			if (this.phi > this.maxPhi) this.phi = this.maxPhi
 			if (this.radius < this.minRadius) this.radius = this.minRadius
 			if (this.radius > this.maxRadius) this.radius = this.maxRadius
+			this.clampPan()
 
 			const st = Math.sin(this.phi)
 			const back = V3(st * Math.cos(this.theta), Math.cos(this.phi), st * Math.sin(this.theta))
@@ -91,6 +119,26 @@ function CreateCamera() {
 		}
 	}
 	return cam
+}
+
+// Ray vs the y=0 ground plane; null if near-parallel or behind the camera.
+function planeHit(ray) {
+	const dy = ray.dir[1]
+	if (dy > -1e-4 && dy < 1e-4) return null
+	const t = -ray.origin[1] / dy
+	if (t <= 0) return null
+	return AddV3(ray.origin, ScaleV3(ray.dir, t))
+}
+
+// Shared camera input for the interactive scenes: RMB drag orbits (vertical
+// inverted - both deltas negated), LMB drag pans along the ground, wheel
+// zooms. Fixed-framing states (menu) just call camera.update(dt) instead.
+function ApplyCameraInput(ctx, dt) {
+	const inp = ctx.input
+	if (inp.btn === 2) ctx.camera.rotate(-inp.pdx * 2.5, -inp.pdy * 2.5)
+	ctx.camera.zoom(inp.wheel * 0.01)
+	ctx.camera.update(dt)
+	if (inp.btn === 0) ctx.camera.panFromScreen([inp.px - inp.pdx, inp.py - inp.pdy], [inp.px, inp.py])
 }
 
 function SetCameraViewport(camera, width, height) {

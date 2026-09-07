@@ -11,6 +11,7 @@ let currentState = null
 let lastTime = 0
 
 InitObjectRenderer(ctx.gl)
+InitPlanetRenderer(ctx.gl)
 InitUI()
 InitResHud()
 
@@ -47,6 +48,8 @@ function Frame(now) {
 	currentState.OnUpdate(ctx, dt)
 
 	ctx.gl.clear(ctx.gl.COLOR_BUFFER_BIT | ctx.gl.DEPTH_BUFFER_BIT)
+	camEyePos = ctx.camera.getEye() // read by the planet shader (rim light), see objects.js
+	gTime = now / 1000 // read by the planet shader (drift animation)
 	const viewProj = ctx.camera.getViewProj()
 	for (let i = 0; i < ctx.objects.length; i++) ctx.objects[i].render(viewProj)
 

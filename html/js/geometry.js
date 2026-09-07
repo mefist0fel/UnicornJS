@@ -53,6 +53,29 @@ function GenCubeMesh() {
 	return { positions, normals, indices }
 }
 
+// Flat annulus in the XZ plane, unit outer radius, used as an orbit line -
+// objects.js scales it by the orbit's actual radius, same as a sphere is
+// scaled by its radius. Only drawn from above/the side within roughly a
+// hemisphere (system_state's camera never dips below the ecliptic, see
+// docs/camera.md), so a single CCW winding (normal +Y) is enough - no need
+// to double it up for back-face visibility.
+function GenRingMesh(segments = 40, thickness = 0.008) {
+	const positions = []
+	const normals = []
+	const indices = []
+	for (let i = 0; i <= segments; i++) {
+		const a = i / segments * Math.PI * 2
+		const c = Math.cos(a), s = Math.sin(a)
+		positions.push(c, 0, s, c * (1 - thickness), 0, s * (1 - thickness))
+		normals.push(0, 1, 0, 0, 1, 0)
+	}
+	for (let i = 0; i < segments; i++) {
+		const a = i * 2, b = a + 2
+		indices.push(a, a + 1, b, a + 1, b + 1, b)
+	}
+	return { positions, normals, indices }
+}
+
 // ---- string-encoded meshes ----
 //
 // A mesh can be written as one short JS string literal instead of an array

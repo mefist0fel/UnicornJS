@@ -13,6 +13,7 @@
 - [docs/ui.md](docs/ui.md) — система панелей/кнопок/баров (DOM-хак поверх WebGL)
 - [docs/battle.md](docs/battle.md) — боевая система: механика, варианты дизайна, баланс
 - [docs/meshformat.md](docs/meshformat.md) — формат меша, закодированного в строке
+- [docs/texture.md](docs/texture.md) — процедурные текстуры: value-шум и градиенты-рампы
 - [docs/build.md](docs/build.md) — сборка, минификация, контроль размера
 
 Инструкции для Claude Code — в [.claude/CLAUDE.md](.claude/CLAUDE.md).

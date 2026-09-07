@@ -6,11 +6,11 @@
 
 const RES_MONEY = 0
 const RES_FUEL = 1
-const RES_LIVES = 2
+const RES_METAL = 2
 const RES_COUNT = 3
-const RES_NAMES = ['Money', 'Fuel', 'Lives']
+const RES_NAMES = ['Money', 'Fuel', 'Metal']
 
-const res = [20, 10, 10]
+const res = [20, 10, 100]
 
 // The HUD (top-right, see #hud in index.html) lives outside #ui on purpose
 // so state transitions (which ClearUI() the state-scoped panels/buttons)
