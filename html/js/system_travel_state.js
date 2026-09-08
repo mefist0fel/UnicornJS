@@ -1,20 +1,22 @@
-// Local travel transition: planet-to-planet inside a system. Unlike the
-// hyperjump we DON'T hide the system - the player keeps seeing it - we just
-// re-add the cached system objects and fly long spark streaks past the ship.
-// The camera leans toward the heading (toward `toPos`), holds, and returns.
-// `onDone` produces the next state, `toPos` is the target planet's world
-// position (for the heading). See docs/tasks.md (block 3).
+// Local travel transition: planet-to-planet (or to the star's orbit) inside a
+// system. Looks like ship_state - the real modular ship (CreateShipModelObjects)
+// sits at the centre - with the system still visible as a backdrop (minus its
+// star, which would overlap the ship) and long spark streaks flying past. The
+// camera leans toward the heading (fromPos -> toPos), holds, and returns.
+// `onDone` produces the next state. Honest "slide the whole system" is Part B.
+// See docs/tasks.md (block 3).
 
-function CreateSystemTravelState(onDone, toPos) {
+function CreateSystemTravelState(onDone, fromPos, toPos) {
 	const COUNT = 40
 	const SWING_IN = 0.3
 	const CRUISE = 1.0
 	const SWING_BACK = 0.3
 	let t = 0
-	let mine = []
+	let sparks = []
+	let shipObjs = []
 	let sysObjs = []
-	let theta0 = 0
-	let phi0 = 0
+	let theta0 = Math.PI / 2
+	let phi0 = 0.85
 	let camTheta = 0
 	let camPhi = 0
 
@@ -29,34 +31,43 @@ function CreateSystemTravelState(onDone, toPos) {
 	return {
 		OnEnter(ctx) {
 			t = 0
-			mine = []
+
+			ctx.camera.setConstraints({ minPhi: 0.1, maxPhi: 1.4, minRadius: 10, maxRadius: 10, autoSpeed: 0 })
+			ctx.camera.position = V3(0, 0, 0)
+			ctx.camera.theta = theta0
+			ctx.camera.phi = phi0
+			ctx.camera.radius = 10
+
+			shipObjs = CreateShipModelObjects(ctx.gl)
 
 			const sys = GetSystem(ctx, currentStarIndex)
-			sysObjs = [sys.star]
-			for (const r of sys.rings) sysObjs.push(r)
-			for (const p of sys.planets) {
+			sysObjs = [] // system as a distant backdrop; skip the star (sits on the
+			for (const p of sys.planets) { // ship) and the orbit rings (too busy up close)
 				sysObjs.push(p.object)
 				for (const m of p.moons) sysObjs.push(m.object)
 			}
-			for (const o of sysObjs) ctx.objects.push(o)
 
+			sparks = []
 			for (let i = 0; i < COUNT; i++) {
 				const p = CreateCubeObject(ctx.gl, respawn(ctx.camera), 1, [1, 1, 1])
 				p.scale = [0.05, 0.05, 1.1] // stretched "spark" streak (see Mat4TranslateScale)
-				mine.push(p)
-				ctx.objects.push(p)
+				sparks.push(p)
 			}
+			for (const o of shipObjs) ctx.objects.push(o)
+			for (const o of sysObjs) ctx.objects.push(o)
+			for (const o of sparks) ctx.objects.push(o)
 
-			theta0 = ctx.camera.theta
-			phi0 = ctx.camera.phi
-			const heading = toPos ? Math.atan2(toPos[2], toPos[0]) : theta0
+			const from = fromPos || V3(0, 0, 0)
+			const to = toPos || V3(1, 0, 0)
+			const heading = Math.atan2(to[2] - from[2], to[0] - from[0])
 			camTheta = heading + Math.PI + 0.18 // behind the ship, ~10deg off
 			camPhi = phi0 - 0.15               // slight rise
 		},
 
 		OnExit(ctx) {
+			RemoveObjects(ctx, shipObjs)
 			RemoveObjects(ctx, sysObjs)
-			RemoveObjects(ctx, mine)
+			RemoveObjects(ctx, sparks)
 		},
 
 		OnUpdate(ctx, dt) {
@@ -71,8 +82,7 @@ function CreateSystemTravelState(onDone, toPos) {
 			ctx.camera.update(dt)
 
 			const b = ctx.camera.getBasis()
-			for (let i = 0; i < mine.length; i++) {
-				const p = mine[i]
+			for (const p of sparks) {
 				const d = DotV3(SubV3(p.position, b.eye), b.forward)
 				if (d < 0.5) p.position = respawn(ctx.camera)
 				else p.position = SubV3(p.position, ScaleV3(b.forward, dt * 26))

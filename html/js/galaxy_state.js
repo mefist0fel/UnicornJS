@@ -20,7 +20,7 @@ function CreateGalaxyState() {
 		if (btn) { btn.remove(); btn = null }
 		if (selectedStarIndex < 0) return
 		if (selectedStarIndex === currentStarIndex) {
-			btn = CreateButton('V', 'bottomleft', () => SetState(CreateSystemState()))
+			btn = CreateButton('V', 'bottomleft', () => SetState(CreateShipState({ atStar: true })))
 		} else if (canReach) {
 			btn = CreateButton('>', 'bottomright', () => TryJump(ctx))
 		}
@@ -64,8 +64,8 @@ function CreateGalaxyState() {
 		SetState(CreateHyperjumpState(() => {
 			currentStarIndex = target
 			selectedStarIndex = -1
-			GetSystem(ctx, target).parkedPlanet = null
-			return CreateSystemState()
+			GetSystem(ctx, target).parkedPlanet = PARK_STAR
+			return CreateShipState({ atStar: true })
 		}))
 	}
 
@@ -86,6 +86,9 @@ function CreateGalaxyState() {
 			UpdateGalaxyMarkers(markerAngle)
 			mine = galaxyStars.map(s => s.object)
 			for (let m = 0; m < currentMarker.objs.length; m++) mine.push(currentMarker.objs[m])
+			// reach ring: how far a hyperjump can go from the current star
+			const cur = galaxyStars[currentStarIndex]
+			mine.push(CreateRingObject(ctx.gl, V3(cur.x, 0.2, cur.z), GALAXY_JUMP_RADIUS, [0.3, 0.55, 0.4]))
 			for (let i = 0; i < mine.length; i++) ctx.objects.push(mine[i])
 
 			for (let i = 0; i < galaxyStars.length; i++) {
@@ -93,7 +96,7 @@ function CreateGalaxyState() {
 			}
 
 			btn = null
-			CreatePanel('Galaxy map - green = in range, then jump', 'top')
+			CreatePanel('Star map - pick a system to jump to', 'top')
 		},
 
 		OnExit(ctx) {

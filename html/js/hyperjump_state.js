@@ -1,10 +1,12 @@
 // Hyperjump transition: a "plasma" rainbow tunnel for star-to-star jumps.
-// Dense concentric rings of cubes (GenRingOfCubes) march toward the camera:
-// far rings are black, they take on colour as they near the ship, the colour
-// then "locks" and just travels past and behind, then the row recycles to the
-// far end. Walls bend gently. The ship stays visible; nothing else is drawn
-// (the previous state already cleaned up). Generic over `onDone`, same
-// contract as system_travel_state.js. See docs/tasks.md (block 3).
+// Looks like ship_state - the real modular ship (CreateShipModelObjects) sits
+// at the centre and flies down a tunnel of dense concentric cube rings
+// (GenRingOfCubes): far rings are black, take on colour as they near, the hue
+// then freezes and just travels past and behind, then the row recycles to the
+// far end. Walls bend gently. Nothing else is drawn (the previous state
+// cleaned up). Generic over `onDone`, same contract as system_travel_state.js.
+// Entered from galaxy_state's jump; onDone -> ship_state at the new star.
+// See docs/tasks.md (block 3).
 
 // sine-wheel rainbow, h in turns (0..1 = full wheel)
 function Rainbow(h) {
@@ -13,10 +15,10 @@ function Rainbow(h) {
 }
 
 function CreateHyperjumpState(onDone) {
-	const ROWS = 20
-	const GAP = 1.3
+	const ROWS = 22
+	const GAP = 1.25
 	const SPAN = ROWS * GAP
-	const NEAR = 2 // rings recycle before they reach the camera
+	const NEAR = 2.5 // rings recycle before they reach the camera
 	const SPEED = 15
 	const LOCK_Z = 4
 	const BEND = 0.9
@@ -28,7 +30,7 @@ function CreateHyperjumpState(onDone) {
 	let mine = []
 	let rows = []
 	let theta0 = 0
-	let phi0 = 1.3
+	let phi0 = 0.9
 
 	return {
 		OnEnter(ctx) {
@@ -36,16 +38,17 @@ function CreateHyperjumpState(onDone) {
 			mine = []
 			rows = []
 
-			ctx.camera.setConstraints({ minPhi: 0.05, maxPhi: Math.PI - 0.05, minRadius: 6, maxRadius: 6, autoSpeed: 0 })
+			// framed like ship_state so it's "the ship", just with the effect
+			ctx.camera.setConstraints({ minPhi: 0.05, maxPhi: Math.PI - 0.05, minRadius: 9, maxRadius: 9, autoSpeed: 0 })
 			ctx.camera.position = V3(0, 0, 0)
+			ctx.camera.theta = Math.PI / 2
 			ctx.camera.phi = phi0
-			ctx.camera.radius = 6
+			ctx.camera.radius = 9
 			theta0 = ctx.camera.theta
 
-			const ship = CreateShipObject(ctx.gl, V3(0, 0, 0), [0.8, 0.88, 1], 0.3)
-			mine.push(ship)
+			for (const o of CreateShipModelObjects(ctx.gl)) mine.push(o)
 			for (let i = 0; i < ROWS; i++) {
-				const r = CreateMeshObject(ctx.gl, V3(0, 0, 0), GenRingOfCubes(16, 3.2, 0.22), 1, [0, 0, 0])
+				const r = CreateMeshObject(ctx.gl, V3(0, 0, 0), GenRingOfCubes(24, 3.4, 0.2), 1, [0, 0, 0])
 				r.z = NEAR + i * GAP
 				r.hue = r.z * 0.09 // rainbow position along the tunnel; freezes once close
 				rows.push(r)

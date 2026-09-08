@@ -39,6 +39,11 @@ const SYSTEM_ORBIT_COLOR = [0.35, 0.4, 0.55]
 const SYSTEM_EVENT_MARKER_COUNT = 1
 const SYSTEM_EVENT_MARKER_SIZE = 0.13
 
+// sys.parkedPlanet holds a planet object, or PARK_STAR ("parked on the star's
+// orbit" - a real location: Hyperjump is only available from there), or null
+// (drifting on the outer orbit, right after arriving in a system).
+const PARK_STAR = 'star'
+
 var systemCache = {}
 
 function planetNeedsEventMarker(planet) {

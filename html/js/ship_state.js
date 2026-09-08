@@ -31,6 +31,8 @@ function CreateShipState(opts) {
 	let rows = []
 	let col2 = []
 	let mapBtn = null
+	let hyperBtn = null
+	let atStar = false
 	let bars = null
 	let topPanel = null
 	let hpMax = 0
@@ -159,10 +161,14 @@ function CreateShipState(opts) {
 		}
 	}
 
-	function updateMapBtn() {
-		const hostile = enemies.length > 0
-		if (hostile && mapBtn) { mapBtn.remove(); mapBtn = null }
-		if (!hostile && !mapBtn) mapBtn = CreateButton('Map', 'bottomleft', () => SetState(CreateSystemState()))
+	// nav buttons: Map (passive, left) at peace; Hyperjump (active, right) only
+	// when parked on a star's orbit. Both hidden during a fight. Rebuilt whole.
+	function updateNavBtns() {
+		if (mapBtn) { mapBtn.remove(); mapBtn = null }
+		if (hyperBtn) { hyperBtn.remove(); hyperBtn = null }
+		if (enemies.length) return
+		mapBtn = CreateButton('Map', 'bottomleft', () => SetState(CreateSystemState()))
+		if (atStar) hyperBtn = CreateButton('Hyperjump', 'bottomright', () => SetState(CreateGalaxyState()))
 	}
 
 	// -------- enemies --------
@@ -199,7 +205,7 @@ function CreateShipState(opts) {
 		}
 		enemies.push(e)
 		wasHostile = true
-		updateMapBtn()
+		updateNavBtns()
 	}
 
 	// live enemy elements (ships + frigates), each a single hp pool
@@ -328,7 +334,7 @@ function CreateShipState(opts) {
 			if (opts.planet) opts.planet.enemyCleared = true
 			shipHp = ShipHpMax()
 			hpMax = shipHp
-			updateMapBtn()
+			updateNavBtns()
 		}
 
 		if (shipHp <= 0) { dead = true; SetState(CreateMenuState()) }
@@ -349,6 +355,8 @@ function CreateShipState(opts) {
 			wasHostile = false
 			dead = false
 			mapBtn = null
+			hyperBtn = null
+			atStar = opts.atStar || GetSystem(ctx, currentStarIndex).parkedPlanet === PARK_STAR
 
 			ctx.camera.setConstraints({
 				minPhi: 0.25, maxPhi: 1.35, minRadius: 4, maxRadius: 18, autoSpeed: 0,
@@ -366,14 +374,14 @@ function CreateShipState(opts) {
 			hpMax = ShipHpMax()
 			if (!opts.enemies) shipHp = hpMax // heal on peaceful entry
 
-			topPanel = CreatePanel('Ship Bay', 'top')
+			topPanel = CreatePanel(atStar ? 'Star Orbit' : 'Ship Bay', 'top')
 			bars = { hp: CreateBar('barsright', '#ff5566'), tgt: CreateBar('barsright', '#ffaa33') }
 			bars.tgt.el.style.right = '6.7vmin'
 
 			CreateDebugMenu(ENEMY_ARCHETYPES.map(a => ({ label: 'Spawn ' + a.name, run: () => spawnEnemy(ctx, a) })))
 
 			refreshLists()
-			updateMapBtn()
+			updateNavBtns()
 
 			if (opts.enemies) for (const a of opts.enemies) spawnEnemy(ctx, a)
 		},
@@ -410,7 +418,7 @@ function CreateShipState(opts) {
 			bars.hp.set(shipHp / hpMax * 100)
 			const parts = liveParts()
 			bars.tgt.set(parts.length ? parts[0].hp / parts[0].hpMax * 100 : 0)
-			topPanel.textContent = enemies.length ? 'Hostiles: ' + enemies.length : 'Ship Bay'
+			topPanel.textContent = enemies.length ? 'Hostiles: ' + enemies.length : atStar ? 'Star Orbit' : 'Ship Bay'
 		}
 	}
 }

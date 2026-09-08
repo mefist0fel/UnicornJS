@@ -1,13 +1,11 @@
 // Solar-system map: a star, its orbit-line rings and 4-7 planets (see
-// system.js) with occasional moons. Click the central star to open the
-// galaxy map; click a planet within to select it (green orbit-marker
-// squares hugging its orbit, see CreateOrbitMarkers) then "Jump" to travel
-// there - which drops you into ship_state, in a fight if that planet still
-// has hostiles. "Return to ship" goes back to the hub without moving. A tiny
-// ship marker orbits whichever body the player is parked at - the outermost
-// orbit right after a hyperjump (sys.parkedPlanet == null), or the last
-// planet travelled to. Planets that still have hostiles carry a red marker.
-// See docs/architecture.md.
+// system.js) with occasional moons. Pick a target - a planet OR the central
+// star (its orbit is a real location) - then "Jump": that plays the travel
+// effect and drops you into ship_state parked at the target. "Return to ship"
+// goes back without moving. A tiny ship marker orbits whatever the player is
+// parked at - the outer orbit right after arriving (sys.parkedPlanet == null),
+// the star's orbit (PARK_STAR), or the last planet. Planets that still have
+// hostiles carry a red marker. See docs/architecture.md.
 
 const SYSTEM_SHIP_SCALE = 0.05
 const SYSTEM_SHIP_ORBIT_PAD = 0.18
@@ -24,14 +22,17 @@ function CreateSystemState() {
 	let shipOrbitRadius = 1
 	let shipAngle = 0
 	let selected = false
-	let selectedPlanet = null
+	let selectedTarget = null // a planet object, or PARK_STAR
 	let pickMarker = null
 	let eventMarkers = [] // [{ marker, planet }]
 	let markerAngle = 0
 
-	function selectPlanet(ctx, planet) {
-		if (planet === selectedPlanet) return
-		selectedPlanet = planet
+	function tgtPos(t) { return t === PARK_STAR ? V3(0, 0, 0) : t.object.position }
+	function tgtRad(t) { return t === PARK_STAR ? sys.starRadius : t.radius }
+
+	function selectTarget(ctx, t) {
+		if (t === selectedTarget) return
+		selectedTarget = t
 		if (!selected) {
 			selected = true
 			pickMarker = CreateOrbitMarkers(ctx.gl, SYSTEM_SELECT_MARKER_COUNT, SYSTEM_SELECT_MARKER_SIZE, [0.2, 1, 0.3])
@@ -44,13 +45,19 @@ function CreateSystemState() {
 	}
 
 	function TryJump(ctx) {
-		if (!selectedPlanet) return
-		const planet = selectedPlanet
-		sys.parkedPlanet = planet
-		SetState(CreateSystemTravelState(() => CreateShipState({
-			planet,
-			enemies: planetNeedsEventMarker(planet) ? planet.enemyArchetypes : null
-		}), planet.object.position))
+		if (!selectedTarget) return
+		const from = shipTarget
+		if (selectedTarget === PARK_STAR) {
+			sys.parkedPlanet = PARK_STAR
+			SetState(CreateSystemTravelState(() => CreateShipState({ atStar: true }), from, V3(0, 0, 0)))
+		} else {
+			const planet = selectedTarget
+			sys.parkedPlanet = planet
+			SetState(CreateSystemTravelState(() => CreateShipState({
+				planet,
+				enemies: planetNeedsEventMarker(planet) ? planet.enemyArchetypes : null
+			}), from, planet.object.position))
+		}
 	}
 
 	return {
@@ -73,8 +80,16 @@ function CreateSystemState() {
 			}
 
 			const parked = sys.parkedPlanet
-			shipTarget = parked ? parked.object.position : V3(0, 0, 0)
-			shipOrbitRadius = parked ? parked.radius * 2.2 + SYSTEM_SHIP_ORBIT_PAD : sys.outerRadius
+			if (parked === PARK_STAR) {
+				shipTarget = V3(0, 0, 0)
+				shipOrbitRadius = sys.starRadius * 2.6 + SYSTEM_SHIP_ORBIT_PAD
+			} else if (parked) {
+				shipTarget = parked.object.position
+				shipOrbitRadius = parked.radius * 2.2 + SYSTEM_SHIP_ORBIT_PAD
+			} else {
+				shipTarget = V3(0, 0, 0)
+				shipOrbitRadius = sys.outerRadius
+			}
 			ship = CreateShipObject(ctx.gl, V3(0, 0, 0), [0.4, 1, 0.45], SYSTEM_SHIP_SCALE)
 			const shipRing = CreateRingObject(ctx.gl, shipTarget, shipOrbitRadius, [0.4, 0.7, 0.5])
 			mine.push(ship, shipRing)
@@ -90,18 +105,18 @@ function CreateSystemState() {
 
 			for (let i = 0; i < mine.length; i++) ctx.objects.push(mine[i])
 
-			sys.star.onClick = () => SetState(CreateGalaxyState())
+			sys.star.onClick = () => selectTarget(ctx, PARK_STAR)
 			for (let i = 0; i < sys.planets.length; i++) {
 				const planet = sys.planets[i]
-				planet.object.onClick = () => selectPlanet(ctx, planet)
+				planet.object.onClick = () => selectTarget(ctx, planet)
 			}
 
 			selected = false
-			selectedPlanet = null
+			selectedTarget = null
 			pickMarker = null
 			shipAngle = Math.random() * Math.PI * 2
 			markerAngle = 0
-			CreatePanel('System - star to leave, planet to jump', 'top')
+			CreatePanel('System - pick a planet or the star, then Jump', 'top')
 			CreateButton('Return to ship', 'bottomleft', () => SetState(CreateShipState()))
 		},
 
@@ -128,7 +143,7 @@ function CreateSystemState() {
 			}
 
 			markerAngle += dt * SYSTEM_MARKER_SPEED
-			if (selected) pickMarker.update(selectedPlanet.object.position, selectedPlanet.radius * 1.3, markerAngle)
+			if (selected) pickMarker.update(tgtPos(selectedTarget), tgtRad(selectedTarget) * (selectedTarget === PARK_STAR ? 1.7 : 1.3), markerAngle)
 			for (let i = 0; i < eventMarkers.length; i++) {
 				const em = eventMarkers[i]
 				em.marker.update(em.planet.object.position, em.planet.radius * 1.6, markerAngle + i)
