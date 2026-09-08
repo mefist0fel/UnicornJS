@@ -57,3 +57,14 @@ function F32(a) { return new Float32Array(a) }
 // directly everywhere instead of threading it through every factory's first
 // argument. Undefined until InitGL runs - nothing touches it at load time.
 let gl
+
+let shortcuts = {
+  // Bind texture shortcut
+  tex: (texture, unit = 0) => gl.bindTexture(unit, texture),
+  nb: (type, buf) => {
+    const bufIdx = gl.createBuffer()
+	gl.bindBuffer(type, bufIdx)
+	gl.bufferData(type, buf, GL_STATIC_DRAW)
+    return bufIdx;
+  }
+ };

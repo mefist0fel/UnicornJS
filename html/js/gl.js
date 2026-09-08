@@ -27,21 +27,34 @@ function CreateProgram(vsSrc, fsSrc) {
 
 // Uploads a { positions, normals, indices } mesh (see geometry.js) into GL
 // buffers. Each object gets its own buffers - meshes are not shared/instanced.
+
+// function UploadMesh(mesh) {
+// 	const posBuf = gl.cb()
+// 	shortcuts.bb(GL_ARRAY_BUFFER, posBuf)
+// 	shortcuts.bd(GL_ARRAY_BUFFER, F32(mesh.positions), GL_STATIC_DRAW)
+
+// 	const normBuf = gl.cb()
+// 	shortcuts.bb(GL_ARRAY_BUFFER, normBuf)
+// 	shortcuts.bd(GL_ARRAY_BUFFER, F32(mesh.normals), GL_STATIC_DRAW)
+
+// 	const idxBuf = gl.cb()
+// 	shortcuts.bb(GL_ELEMENT_ARRAY_BUFFER, idxBuf)
+// 	shortcuts.bd(GL_ELEMENT_ARRAY_BUFFER, new Uint16Array(mesh.indices), GL_STATIC_DRAW)
+
+// 	return { posBuf, normBuf, idxBuf, count: mesh.indices.length }
+// }
+
+// Optimized upload mesh version
 function UploadMesh(mesh) {
-	const posBuf = gl.createBuffer()
-	gl.bindBuffer(GL_ARRAY_BUFFER, posBuf)
-	gl.bufferData(GL_ARRAY_BUFFER, F32(mesh.positions), GL_STATIC_DRAW)
+	const posBuf = shortcuts.nb(GL_ARRAY_BUFFER, F32(mesh.positions))
 
-	const normBuf = gl.createBuffer()
-	gl.bindBuffer(GL_ARRAY_BUFFER, normBuf)
-	gl.bufferData(GL_ARRAY_BUFFER, F32(mesh.normals), GL_STATIC_DRAW)
+	const normBuf = shortcuts.nb(GL_ARRAY_BUFFER, F32(mesh.normals))
 
-	const idxBuf = gl.createBuffer()
-	gl.bindBuffer(GL_ELEMENT_ARRAY_BUFFER, idxBuf)
-	gl.bufferData(GL_ELEMENT_ARRAY_BUFFER, new Uint16Array(mesh.indices), GL_STATIC_DRAW)
+	const idxBuf = shortcuts.nb(GL_ELEMENT_ARRAY_BUFFER, new Uint16Array(mesh.indices))
 
 	return { posBuf, normBuf, idxBuf, count: mesh.indices.length }
 }
+
 
 // ---- vec3 ----
 function V3(x = 0, y = 0, z = 0) { return [x, y, z] }
