@@ -43,15 +43,15 @@ function GenerateGalaxy(ctx) {
 			const type = STAR_ARCHETYPES[Mfl(Mr() * STAR_ARCHETYPES.length)]
 			const radius = GALAXY_STAR_BASE_RADIUS * type.radius
 			const off = V3(Mr() * 7, Mr() * 7, Mr() * 7)
-			const object = CreatePlanetObject(ctx.gl, V3(x, 0, z), radius, GetRamp(ctx.gl, type.ramp), type.planeScale, off, type.drift, 1)
+			const object = CreatePlanetObject(V3(x, 0, z), radius, GetRamp(type.ramp), type.planeScale, off, type.drift, 1)
 			object.radius += 0.35 // pick-only padding, see system.js's identical hack
 			galaxyStars.push({ x, z, type, object })
 		}
 	}
 	currentStarIndex = Mfl(Mr() * galaxyStars.length)
 	selectedStarIndex = -1
-	currentMarker = CreateOrbitMarkers(ctx.gl, GALAXY_MARKER_COUNT, GALAXY_MARKER_SIZE, [1, 0.2, 0.2])
-	selectedMarker = CreateOrbitMarkers(ctx.gl, GALAXY_MARKER_COUNT, GALAXY_MARKER_SIZE, [0.2, 1, 0.3])
+	currentMarker = CreateOrbitMarkers(GALAXY_MARKER_COUNT, GALAXY_MARKER_SIZE, [1, 0.2, 0.2])
+	selectedMarker = CreateOrbitMarkers(GALAXY_MARKER_COUNT, GALAXY_MARKER_SIZE, [0.2, 1, 0.3])
 }
 
 function StarDist(a, b) {

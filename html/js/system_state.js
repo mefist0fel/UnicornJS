@@ -35,7 +35,7 @@ function CreateSystemState() {
 		selectedTarget = t
 		if (!selected) {
 			selected = true
-			pickMarker = CreateOrbitMarkers(ctx.gl, SYSTEM_SELECT_MARKER_COUNT, SYSTEM_SELECT_MARKER_SIZE, [0.2, 1, 0.3])
+			pickMarker = CreateOrbitMarkers(SYSTEM_SELECT_MARKER_COUNT, SYSTEM_SELECT_MARKER_SIZE, [0.2, 1, 0.3])
 			for (let i = 0; i < pickMarker.objs.length; i++) {
 				ctx.objects.push(pickMarker.objs[i])
 				mine.push(pickMarker.objs[i])
@@ -90,15 +90,15 @@ function CreateSystemState() {
 				shipTarget = V3()
 				shipOrbitRadius = sys.outerRadius
 			}
-			ship = CreateShipObject(ctx.gl, V3(), [0.4, 1, 0.45], SYSTEM_SHIP_SCALE)
-			const shipRing = CreateRingObject(ctx.gl, shipTarget, shipOrbitRadius, [0.4, 0.7, 0.5])
+			ship = CreateShipObject(V3(), [0.4, 1, 0.45], SYSTEM_SHIP_SCALE)
+			const shipRing = CreateRingObject(shipTarget, shipOrbitRadius, [0.4, 0.7, 0.5])
 			mine.push(ship, shipRing)
 
 			eventMarkers = []
 			for (let i = 0; i < sys.planets.length; i++) {
 				const planet = sys.planets[i]
 				if (!planetNeedsEventMarker(planet)) continue
-				const marker = CreateOrbitMarkers(ctx.gl, SYSTEM_EVENT_MARKER_COUNT, SYSTEM_EVENT_MARKER_SIZE, [1, 0.2, 0.2])
+				const marker = CreateOrbitMarkers(SYSTEM_EVENT_MARKER_COUNT, SYSTEM_EVENT_MARKER_SIZE, [1, 0.2, 0.2])
 				eventMarkers.push({ marker, planet })
 				for (let m = 0; m < marker.objs.length; m++) mine.push(marker.objs[m])
 			}

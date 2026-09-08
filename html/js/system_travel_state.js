@@ -58,7 +58,7 @@ function CreateSystemTravelState(onDone, fromBody, toBody) {
 			ctx.camera.phi = phi0
 			ctx.camera.setDist(R_FAR)
 
-			shipObjs = CreateShipModelObjects(ctx.gl)
+			shipObjs = CreateShipModelObjects()
 			for (const o of shipObjs) o.base = o.position.slice()
 
 			sys = GetSystem(ctx, currentStarIndex)
@@ -78,7 +78,7 @@ function CreateSystemTravelState(onDone, fromBody, toBody) {
 
 			sparks = []
 			for (let i = 0; i < COUNT; i++) {
-				const p = CreateCubeObject(ctx.gl, V3(), 1, [0, 0, 0])
+				const p = CreateCubeObject(V3(), 1, [0, 0, 0])
 				p.scale = streakScale
 				p.loc = respawn()
 				sparks.push(p)

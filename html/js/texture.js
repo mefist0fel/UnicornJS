@@ -9,7 +9,7 @@
 
 // Wraps the raw bytes in a GL texture. `repeat` needs power-of-two w/h
 // (the noise texture); ramps are Nx1 and use CLAMP.
-function MakeTexture(gl, w, h, data, repeat) {
+function MakeTexture(w, h, data, repeat) {
 	const tex = gl.createTexture()
 	gl.bindTexture(GL_TEXTURE_2D, tex)
 	gl.texImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, data)
@@ -27,7 +27,7 @@ function MakeTexture(gl, w, h, data, repeat) {
 // indices wrap (`% freq`) so the result tiles seamlessly - the triplanar
 // sampler reads it with GL_REPEAT. `size` must be power-of-two. Stopping at
 // freq 16 (no 1/32 octave) keeps surfaces readable rather than sandpapery.
-function GenNoiseTexture(gl, size = 64) {
+function GenNoiseTexture(size = 64) {
 	const acc = F32(size * size)
 	let amp = 1
 	for (let freq = 4; freq <= size / 4; freq *= 2) {
@@ -59,20 +59,20 @@ function GenNoiseTexture(gl, size = 64) {
 		data[i * 4] = data[i * 4 + 1] = data[i * 4 + 2] = v
 		data[i * 4 + 3] = 255
 	}
-	return MakeTexture(gl, size, size, data, true)
+	return MakeTexture(size, size, data, true)
 }
 
 // A ramp string is groups of 3 chars, each group one RGB keyframe in the
 // mesh quantisation (geometry.js): MeshCharVal(code) / 92 -> 0..1 per
 // channel. Keyframes spread evenly over 0..1, linearly interpolated into a
 // width x 1 RGBA strip.
-function GenRampTexture(gl, str, width = 64) {
+function GenRampTexture(str, width = 64) {
 	const kf = []
 	for (let i = 0; i + 2 < str.length; i += 3) {
 		kf.push([
-			MeshCharVal(str.charCodeAt(i)) / 92,
-			MeshCharVal(str.charCodeAt(i + 1)) / 92,
-			MeshCharVal(str.charCodeAt(i + 2)) / 92
+			MeshCharVal(str, i) / 92,
+			MeshCharVal(str, i + 1) / 92,
+			MeshCharVal(str, i + 2) / 92
 		])
 	}
 	const data = new Uint8Array(width * 4)
@@ -86,11 +86,11 @@ function GenRampTexture(gl, str, width = 64) {
 		data[x * 4 + 2] = (a[2] + (b[2] - a[2]) * f) * 255
 		data[x * 4 + 3] = 255
 	}
-	return MakeTexture(gl, width, 1, data, false)
+	return MakeTexture(width, 1, data, false)
 }
 
 // N bodies of the same archetype share one ramp texture.
 var rampCache = {}
-function GetRamp(gl, str) {
-	return rampCache[str] || (rampCache[str] = GenRampTexture(gl, str))
+function GetRamp(str) {
+	return rampCache[str] || (rampCache[str] = GenRampTexture(str))
 }

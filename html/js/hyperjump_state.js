@@ -49,9 +49,9 @@ function CreateHyperjumpState(onDone) {
 			ctx.camera.phi = phi0
 			ctx.camera.setDist(5)
 
-			for (const o of CreateShipModelObjects(ctx.gl)) mine.push(o)
+			for (const o of CreateShipModelObjects()) mine.push(o)
 			for (let i = 0; i < ROWS; i++) {
-				const r = CreateMeshObject(ctx.gl, V3(), GenRingOfCubes(34, 2.1, 0.14), 1, [0, 0, 0])
+				const r = CreateMeshObject(V3(), GenRingOfCubes(34, 2.1, 0.14), 1, [0, 0, 0])
 				r.d = AHEAD + i * GAP // signed distance ahead along -z (d<0 = behind, +z)
 				r.hue = r.d * HUE_K
 				rows.push(r)

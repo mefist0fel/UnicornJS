@@ -24,7 +24,7 @@
 и четверть точны:
 
 ```
-n = code - 32;  if (code > 0x27) n--;  if (code > 0x5C) n--;      // MeshCharVal(code)
+code = s.charCodeAt(i);  n = code - 32;  if (code > 0x27) n--;  if (code > 0x5C) n--;   // MeshCharVal(s, i)
 знаковая координата = (n - 46) / 46      // n=0→−1.0  n=46→0.0  n=69→+0.5  n=92→+1.0
 беззнаковое (рампы) = n / 92
 полный ряд: (пробел)!"#$%&()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[]^_`abcdefghijklmnopqrstuvwxyz{|}~

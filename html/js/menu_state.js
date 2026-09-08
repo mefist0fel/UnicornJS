@@ -17,7 +17,7 @@ function CreateMenuState() {
 			ctx.camera.setDist(10)
 
 			const sunType = STAR_ARCHETYPES[2] // yellow
-			const sun = CreatePlanetObject(ctx.gl, V3(), 2, GetRamp(ctx.gl, sunType.ramp), sunType.planeScale, V3(), sunType.drift, 1)
+			const sun = CreatePlanetObject(V3(), 2, GetRamp(sunType.ramp), sunType.planeScale, V3(), sunType.drift, 1)
 			mine = [sun]
 			ctx.objects.push(sun)
 

@@ -29,8 +29,8 @@ var gTime = 0
 const objVS = `attribute vec3 a;attribute vec3 b;uniform mat4 c;varying vec3 n;void main(){n=b;gl_Position=c*vec4(a,1.);}`
 const objFS = `precision mediump float;uniform vec3 d;uniform vec3 e;varying vec3 n;void main(){vec3 l=normalize(vec3(.4,.8,.5));float f=max(dot(normalize(n),l),0.);gl_FragColor=vec4(d*(.35+.65*f)+e,1.);}`
 
-function InitObjectRenderer(gl) {
-	objProgram = CreateProgram(gl, objVS, objFS)
+function InitObjectRenderer() {
+	objProgram = CreateProgram(objVS, objFS)
 	objLoc = {
 		aPos: gl.getAttribLocation(objProgram, 'a'),
 		aNormal: gl.getAttribLocation(objProgram, 'b'),
@@ -47,8 +47,8 @@ function InitObjectRenderer(gl) {
 // caller can animate it after creation - battle_state's hit-impact "explode"
 // effect (grow then shrink over its lifetime) is the one thing that needs
 // this; every other object just leaves it untouched after creation.
-function CreateMeshObject(gl, position, mesh, scale, color, emissive) {
-	const buf = UploadMesh(gl, mesh)
+function CreateMeshObject(position, mesh, scale, color, emissive) {
+	const buf = UploadMesh(mesh)
 	return {
 		position,
 		scale,
@@ -77,14 +77,14 @@ function CreateMeshObject(gl, position, mesh, scale, color, emissive) {
 	}
 }
 
-function CreateSphereObject(gl, position, radius, color, latBands = 12, lonBands = 16, emissive) {
-	const o = CreateMeshObject(gl, position, GenSphereMesh(latBands, lonBands), radius, color, emissive)
+function CreateSphereObject(position, radius, color, latBands = 12, lonBands = 16, emissive) {
+	const o = CreateMeshObject(position, GenSphereMesh(latBands, lonBands), radius, color, emissive)
 	o.radius = radius // bounding radius, also used for picking
 	return o
 }
 
-function CreateCubeObject(gl, position, size, color) {
-	return CreateMeshObject(gl, position, GenCubeMesh(), size, color)
+function CreateCubeObject(position, size, color) {
+	return CreateMeshObject(position, GenCubeMesh(), size, color)
 }
 
 // Thin flat orbit-line ring (see GenRingMesh, geometry.js) - `radius` is the
@@ -92,8 +92,8 @@ function CreateCubeObject(gl, position, size, color) {
 // scale by `radius` both sizes and positions its thickness correctly. Never
 // clickable (no onClick/.radius bounding sphere is set), so PickObject just
 // skips it like it skips any other non-interactive object.
-function CreateRingObject(gl, position, radius, color) {
-	return CreateMeshObject(gl, position, GenRingMesh(), radius, color)
+function CreateRingObject(position, radius, color) {
+	return CreateMeshObject(position, GenRingMesh(), radius, color)
 }
 
 // A flat thin ribbon lying in the y=0 plane between two world points - the
@@ -101,7 +101,7 @@ function CreateRingObject(gl, position, radius, color) {
 // Both endpoints are baked into the mesh (model matrix stays identity), so no
 // rotation support in Mat4TranslateScale is needed. Double-wound so it's
 // visible from either side.
-function CreateLineObject(gl, a, b, color, width = 0.09) {
+function CreateLineObject(a, b, color, width = 0.09) {
 	const d = NormV3(SubV3(b, a))
 	const perp = ScaleV3(NormV3(V3(-d[2], 0, d[0])), width / 2)
 	const p0 = SubV3(a, perp), p1 = AddV3(a, perp), p2 = AddV3(b, perp), p3 = SubV3(b, perp)
@@ -110,7 +110,7 @@ function CreateLineObject(gl, a, b, color, width = 0.09) {
 	]
 	const normals = [0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0]
 	const indices = [0, 1, 2, 0, 2, 3, 0, 2, 1, 0, 3, 2]
-	return CreateMeshObject(gl, V3(), { positions, normals, indices }, 1, color)
+	return CreateMeshObject(V3(), { positions, normals, indices }, 1, color)
 }
 
 // A spherical shell of white cubes as the star-sky backdrop. Points are
@@ -121,14 +121,14 @@ function CreateLineObject(gl, a, b, color, width = 0.09) {
 // making it an infinitely-distant skybox (zero parallax) rather than fixed
 // geometry the true-scale system could fly past. `basePos` is the shell-space
 // offset main.js adds the eye to. Rendered before ctx.objects, state-independent.
-function CreateStarfield(gl, count = 180) {
+function CreateStarfield(count = 180) {
 	const out = []
 	const R = 7500
 	while (out.length < count) {
 		const p = V3((Mr() * 2 - 1) * R, (Mr() * 2 - 1) * R, (Mr() * 2 - 1) * R)
 		const d = LenV3(p)
 		if (d < 5500 || d > R) continue
-		const o = CreateCubeObject(gl, p, 10 + Mr() * Mr() * 45, [1, 1, 1])
+		const o = CreateCubeObject(p, 10 + Mr() * Mr() * 45, [1, 1, 1])
 		o.basePos = p
 		out.push(o)
 	}
@@ -139,8 +139,8 @@ function CreateStarfield(gl, count = 180) {
 // string-encoded mesh (see geometry.js) as its one real use in the game.
 // The encoded cube's corners sit at +-1 rather than +-0.5, hence the extra
 // 0.5 scale factor to match the visual size of a hand-coded cube.
-function CreateShipObject(gl, position, color, scale = 0.5) {
-	return CreateMeshObject(gl, position, GenEncodedCubeMesh(), scale, color)
+function CreateShipObject(position, color, scale = 0.5) {
+	return CreateMeshObject(position, GenEncodedCubeMesh(), scale, color)
 }
 
 // A handful of small cubes evenly spaced on a circle, continuously
@@ -149,9 +149,9 @@ function CreateShipObject(gl, position, color, scale = 0.5) {
 // planet (system_state). Not a scene object itself (no render()) - callers
 // push .objs into ctx.objects and drive .update() every frame with a
 // growing angle, same idiom as the ship orbiting a body.
-function CreateOrbitMarkers(gl, count, size, color) {
+function CreateOrbitMarkers(count, size, color) {
 	const objs = []
-	for (let i = 0; i < count; i++) objs.push(CreateCubeObject(gl, V3(), size, color))
+	for (let i = 0; i < count; i++) objs.push(CreateCubeObject(V3(), size, color))
 	return {
 		objs,
 		update(center, radius, angle) {
@@ -197,8 +197,8 @@ var noiseTex = null
 const planetVS = `attribute vec3 a;attribute vec3 b;uniform mat4 c;uniform mat4 m;varying vec3 p;varying vec3 W;varying vec3 n;void main(){p=a;n=b;W=(m*vec4(a,1.)).xyz;gl_Position=c*vec4(a,1.);}`
 const planetFS = `precision mediump float;uniform sampler2D N;uniform sampler2D R;uniform vec3 P;uniform vec3 O;uniform vec3 D;uniform float T;uniform float E;uniform vec3 Y;varying vec3 p;varying vec3 W;varying vec3 n;void main(){vec3 x=normalize(n);vec3 w=pow(abs(x),vec3(4.));w/=w.x+w.y+w.z;vec3 q=p*P+O+T*D;float h=texture2D(N,q.yz).r*w.x+texture2D(N,q.zx).r*w.y+texture2D(N,q.xy).r*w.z;vec3 c=texture2D(R,vec2(clamp(h,.02,.98),.5)).rgb;float d=max(dot(x,normalize(vec3(.4,.8,.5))),0.);vec3 l=c*(.3+.7*d);float r=pow(1.-max(dot(x,normalize(Y-W)),0.),3.);vec3 g=c+r*vec3(1.,.95,.85)*.6;gl_FragColor=vec4(mix(l,g,E),1.);}`
 
-function InitPlanetRenderer(gl) {
-	planetProgram = CreateProgram(gl, planetVS, planetFS)
+function InitPlanetRenderer() {
+	planetProgram = CreateProgram(planetVS, planetFS)
 	planetLoc = {
 		aPos: gl.getAttribLocation(planetProgram, 'a'),
 		aNormal: gl.getAttribLocation(planetProgram, 'b'),
@@ -213,14 +213,14 @@ function InitPlanetRenderer(gl) {
 		uEmissive: gl.getUniformLocation(planetProgram, 'E'),
 		uEye: gl.getUniformLocation(planetProgram, 'Y')
 	}
-	noiseTex = GenNoiseTexture(gl, 64)
+	noiseTex = GenNoiseTexture(64)
 }
 
 // rampTex is a ramp texture (GetRamp, texture.js). planeScale/offset/drift
 // are vec3 arrays; emissive is 0..1. Keeps .radius for picking and honors
 // this.scale in the model matrix, same as CreateMeshObject.
-function CreatePlanetObject(gl, position, radius, rampTex, planeScale, offset, drift, emissive, latBands = 16, lonBands = 22) {
-	const buf = UploadMesh(gl, GenSphereMesh(latBands, lonBands))
+function CreatePlanetObject(position, radius, rampTex, planeScale, offset, drift, emissive, latBands = 16, lonBands = 22) {
+	const buf = UploadMesh(GenSphereMesh(latBands, lonBands))
 	return {
 		position,
 		scale: radius,

@@ -65,7 +65,7 @@ canvas2d-псевдо-3D.
 - Меш каждого объекта — собственный, не шарится между инстансами (`UploadMesh` в `gl.js`
   создаёт новые буферы на каждый вызов). Это позволяет, например, двум сферам иметь разную
   тесселяцию (`latBands`/`lonBands`), а не быть масштабированной копией одного общего меша.
-- Один фабричный слой `CreateMeshObject(gl, position, mesh, scale, color)` (`objects.js`) —
+- Один фабричный слой `CreateMeshObject(position, mesh, scale, color)` (`objects.js`) —
   общая часть (буферы, `render`, model-матрица `position + scale`). Разница между "видами"
   объектов — только в том, *какой генератор меша* ему передали
   (`GenSphereMesh`/`GenCubeMesh` в `geometry.js`), не в отдельных типах/классах объектов.
@@ -102,7 +102,7 @@ canvas2d-псевдо-3D.
 ### Планеты и звёзды — трипланарный шейдер
 
 Сфера получает не цвет, а поверхность. Общая программа `planetProgram` (`planetVS`/`planetFS`,
-`objects.js`), фабрика — `CreatePlanetObject(gl, pos, radius, rampTex, planeScale, offset,
+`objects.js`), фабрика — `CreatePlanetObject(pos, radius, rampTex, planeScale, offset,
 drift, emissive, latBands?, lonBands?)`:
 
 - **Трипланар.** Общая tileable-текстура value-шума (`GenNoiseTexture`, `texture.js`) читается
@@ -128,7 +128,7 @@ drift, emissive, latBands?, lonBands?)`:
 
 ### Орбитальные маркеры и линии
 
-`CreateOrbitMarkers(gl, count, size, color)` (`objects.js`) — не объект сцены сам по себе (нет
+`CreateOrbitMarkers(count, size, color)` (`objects.js`) — не объект сцены сам по себе (нет
 `render()`), а группа из `count` маленьких кубиков, равномерно расставленных по окружности и
 непрерывно вращающихся. Два разных `count` дают два разных визуала одним и тем же кодом:
 `count=6` ("селектор", несколько точек по кругу) — текущая/выбранная звезда (`galaxy_state`,
@@ -140,7 +140,7 @@ drift, emissive, latBands?, lonBands?)`:
 и каждый кадр зовёт `.update(center, radius, angle)` с растущим `angle` — тем же приёмом, что
 раньше двигал кораблик по орбите звезды.
 
-`CreateRingObject(gl, position, radius, color)` — тонкое плоское кольцо (`GenRingMesh`,
+`CreateRingObject(position, radius, color)` — тонкое плоское кольцо (`GenRingMesh`,
 `geometry.js`, авторено единичным радиусом в плоскости XZ, обычный uniform-`scale`
 растягивает его и толщину заодно) — орбитальная линия планеты вокруг звезды и маленькая
 орбитальная линия кораблика вокруг того, где он сейчас "припаркован". Не кликабельно (не
@@ -148,7 +148,7 @@ drift, emissive, latBands?, lonBands?)`:
 экрана держат камеру строго в верхней полусфере (см. [camera.md](camera.md)), так что кольцо
 никогда не видно с "изнанки".
 
-`CreateLineObject(gl, a, b, color)` — плоская тонкая лента между двумя **мировыми** точками
+`CreateLineObject(a, b, color)` — плоская тонкая лента между двумя **мировыми** точками
 в плоскости XZ. Оба конца запечены прямо в вершины меша (model-матрица — единичная), поэтому
 не нужна поддержка поворота в `Mat4TranslateScale`; лента двусторонняя (две обмотки), чтобы
 читалась с любого ракурса. Единственное применение — линия "докуда можно допрыгнуть" от
@@ -322,7 +322,8 @@ HP + кнопками, см. [ui.md](ui.md)), `SlotTargets(i)` / `ShipTargets()`
 
 | файл                      | отвечает за |
 |----------------------------|-------------|
-| `gl.js`                    | WebGL-контекст, шейдеры, vec3/mat4 математика, загрузка меша в GL-буферы; `Math.*`-алиасы, числовые `GL_*` энумы (спец Khronos, хардкод — см. [optimization.md](optimization.md)), `F32()` |
+| `include.js`                | **первый** в конкатенации: `Math.*`-алиасы (`Mr`/`Ms`/…), числовые `GL_*` энумы (спец Khronos, хардкод — см. [optimization.md](optimization.md)), `F32()`, и `let gl` — глобаль WebGL-контекста (declaration в первом файле видна всем; значение приходит из `InitGL`) |
+| `gl.js`                    | инициализация `gl` (`InitGL` присваивает глобаль), компиляция шейдеров, vec3/mat4 математика, `UploadMesh`. Фабрики больше **не** принимают `gl` первым аргументом — читают глобаль |
 | `sound.js`                  | звук: свой мини-синт на Web Audio (`Tone`/`Noise`), пресеты `Sfx`/`SHOOT_SFX`, тикающий эмбиент (`MusicStart`/`MusicStop`), `ToggleMute`; см. [sound.md](sound.md) |
 | `geometry.js`               | генерация меш-данных: сфера/кубик/кольцо/`GenRingOfCubes` по коду и строково-закодированные меши, см. [meshformat.md](meshformat.md) |
 | `texture.js`                | процедурные текстуры: value-шум и градиенты-рампы из строк, см. [texture.md](texture.md) |

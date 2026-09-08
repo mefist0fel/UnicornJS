@@ -277,20 +277,20 @@ function shipVizColor(m) {
 // module viz). ship_state builds its own pickable version; the transition
 // states (hyperjump/system_travel) use this so the *real* ship is what flies
 // through the effect, not a placeholder.
-function CreateShipModelObjects(gl) {
+function CreateShipModelObjects() {
 	const out = []
 	for (const p of DecodeShipSchema(MODULES[currentShipId].schema).cells) {
-		out.push(CreateCubeObject(gl, V3(p[0], 0, p[2]), 0.5, [0.32, 0.34, 0.4]))
+		out.push(CreateCubeObject(V3(p[0], 0, p[2]), 0.5, [0.32, 0.34, 0.4]))
 	}
 	for (let i = 0; i < shipSlots.length; i++) {
 		if (ActiveSlots(shipSlots[i].type).indexOf(i) === -1) continue
 		const s = shipSlots[i]
 		const m = MODULES[s.moduleId]
 		if (m.viz === 'gun') {
-			out.push(CreateCubeObject(gl, V3(s.pos[0], 0.45, s.pos[2]), 0.28, shipVizColor(m)))
+			out.push(CreateCubeObject(V3(s.pos[0], 0.45, s.pos[2]), 0.28, shipVizColor(m)))
 		} else if (m.viz === 'corvette') {
-			out.push(CreateCubeObject(gl, V3(s.pos[0], 0, s.pos[2]), 0.5, [0.7, 0.72, 0.8]))
-			out.push(CreateCubeObject(gl, V3(s.pos[0], 0.42, s.pos[2]), 0.22, shipVizColor(m)))
+			out.push(CreateCubeObject(V3(s.pos[0], 0, s.pos[2]), 0.5, [0.7, 0.72, 0.8]))
+			out.push(CreateCubeObject(V3(s.pos[0], 0.42, s.pos[2]), 0.22, shipVizColor(m)))
 		}
 	}
 	return out

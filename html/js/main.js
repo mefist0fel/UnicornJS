@@ -1,8 +1,8 @@
 // Bootstrap + state machine + game loop. See docs/architecture.md.
 
 const canvas = document.getElementById('c')
+InitGL(canvas) // sets the module-scope `gl` (include.js) - do this before anything reads it
 const ctx = {
-	gl: InitGL(canvas),
 	objects: [],
 	camera: CreateCamera(),
 	input: CreateInput(canvas)
@@ -10,14 +10,14 @@ const ctx = {
 let currentState = null
 let lastTime = 0
 
-InitObjectRenderer(ctx.gl)
-InitPlanetRenderer(ctx.gl)
+InitObjectRenderer()
+InitPlanetRenderer()
 InitUI()
 InitResHud()
 
 // Star-sky backdrop: built once, drawn every frame behind ctx.objects,
 // never owned by a state (see CreateStarfield in objects.js).
-const starfield = CreateStarfield(ctx.gl)
+const starfield = CreateStarfield()
 
 // Switching state is just swapping currentState for another state instance;
 // this wrapper is what makes that swap also call OnExit/OnEnter. It does
@@ -35,7 +35,7 @@ function Resize() {
 	const h = canvas.clientHeight
 	canvas.width = w
 	canvas.height = h
-	ctx.gl.viewport(0, 0, w, h)
+	gl.viewport(0, 0, w, h)
 	SetCameraViewport(ctx.camera, w, h)
 }
 Resize()
@@ -51,7 +51,7 @@ function Frame(now) {
 
 	currentState.OnUpdate(ctx, dt)
 
-	ctx.gl.clear(ctx.gl.COLOR_BUFFER_BIT | ctx.gl.DEPTH_BUFFER_BIT)
+	gl.clear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 	camEyePos = ctx.camera.getEye() // read by the planet shader (rim light), see objects.js
 	gTime = now / 1000 // read by the planet shader (drift animation)
 	const viewProj = ctx.camera.getViewProj()

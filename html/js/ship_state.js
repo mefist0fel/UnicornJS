@@ -56,7 +56,7 @@ function CreateShipState(opts) {
 		const dec = DecodeShipSchema(MODULES[currentShipId].schema)
 		playerCells = dec.cells
 		for (const p of dec.cells) {
-			const cube = CreateCubeObject(ctx.gl, V3(p[0], 0, p[2]), 0.5, [0.32, 0.34, 0.4])
+			const cube = CreateCubeObject(V3(p[0], 0, p[2]), 0.5, [0.32, 0.34, 0.4])
 			hullCubes.push(cube)
 			addLive(ctx, cube)
 		}
@@ -69,14 +69,14 @@ function CreateShipState(opts) {
 		const p = shipSlots[i].pos
 		const m = MODULES[shipSlots[i].moduleId]
 		if (m.viz === 'gun') {
-			const g = CreateCubeObject(ctx.gl, V3(p[0], 0.45, p[2]), 0.28, shipVizColor(m))
+			const g = CreateCubeObject(V3(p[0], 0.45, p[2]), 0.28, shipVizColor(m))
 			g.radius = 0.3
 			g.onClick = () => selectSlot(i)
 			slotViz[i].push(g)
 			addLive(ctx, g)
 		} else if (m.viz === 'corvette') {
-			const body = CreateCubeObject(ctx.gl, V3(p[0], 0, p[2]), 0.5, [0.7, 0.72, 0.8])
-			const gun = CreateCubeObject(ctx.gl, V3(p[0], 0.42, p[2]), 0.22, shipVizColor(m))
+			const body = CreateCubeObject(V3(p[0], 0, p[2]), 0.5, [0.7, 0.72, 0.8])
+			const gun = CreateCubeObject(V3(p[0], 0.42, p[2]), 0.22, shipVizColor(m))
 			gun.radius = 0.35
 			gun.onClick = () => selectSlot(i)
 			slotViz[i].push(body, gun)
@@ -213,7 +213,7 @@ function CreateShipState(opts) {
 		const dec = DecodeShipSchema(schema)
 		const objs = []
 		for (const p of dec.cells) {
-			const o = CreateCubeObject(ctx.gl, AddV3(at, p), 0.42, color)
+			const o = CreateCubeObject(AddV3(at, p), 0.42, color)
 			objs.push(o)
 			addLive(ctx, o)
 		}
@@ -275,8 +275,8 @@ function CreateShipState(opts) {
 	function fireAt(ctx, from, aim, kind, dmg, hostile, apply) {
 		const start = V3(from[0], from[1], from[2])
 		const o = kind === 'plasma'
-			? CreateSphereObject(ctx.gl, start, 0.18, FIRE_COLORS[kind], 6, 8)
-			: CreateCubeObject(ctx.gl, start, kind === 'rocket' ? 0.22 : 0.14, FIRE_COLORS[kind])
+			? CreateSphereObject(start, 0.18, FIRE_COLORS[kind], 6, 8)
+			: CreateCubeObject(start, kind === 'rocket' ? 0.22 : 0.14, FIRE_COLORS[kind])
 		addLive(ctx, o)
 		let popAt = 0
 		if (hostile && kind === 'rocket' && Mr() < PlayerInterceptChance()) popAt = 0.15 + Mr() * 0.2
@@ -285,7 +285,7 @@ function CreateShipState(opts) {
 
 	function spawnExplosion(ctx, at) {
 		Sfx.explosion()
-		const o = CreateSphereObject(ctx.gl, V3(at[0], at[1], at[2]), 1, [1, 1, 1], 8, 10)
+		const o = CreateSphereObject(V3(at[0], at[1], at[2]), 1, [1, 1, 1], 8, 10)
 		o.scale = 0.01
 		effects.push({ obj: o, t: 0 })
 		addLive(ctx, o)

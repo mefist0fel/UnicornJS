@@ -126,9 +126,12 @@ function GenRingOfCubes(seg, radius, size) {
 //   n=92  -> '~'   -> signed +1.0   / unsigned 1.0
 //   full row: (space)!"#$%&()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[]^_`abcdefghijklmnopqrstuvwxyz{|}~
 //
-// MeshCharVal(code) -> n. Signed coord = (n-46)/46 ; unsigned = n/92.
+// MeshCharVal(str, i) -> n for char i of str. Signed coord = (n-46)/46 ;
+// unsigned = n/92. (Always called on a string char, so it takes the index -
+// no bare charCodeAt at the call sites.)
 // MeshEncChar(n) -> the char (offline tooling; closure drops it as dead code).
-function MeshCharVal(code) {
+function MeshCharVal(s, i) {
+	const code = s.charCodeAt(i)
 	let n = code - 32
 	if (code > 0x27) n--
 	if (code > 0x5C) n--
@@ -154,9 +157,9 @@ function DecodeMeshString(s) {
 	const points = []
 	for (let i = 0; i < s.length; i += 3) {
 		points.push([
-			(MeshCharVal(s.charCodeAt(i)) - 46) / 46,
-			(MeshCharVal(s.charCodeAt(i + 1)) - 46) / 46,
-			(MeshCharVal(s.charCodeAt(i + 2)) - 46) / 46
+			(MeshCharVal(s, i) - 46) / 46,
+			(MeshCharVal(s, i + 1) - 46) / 46,
+			(MeshCharVal(s, i + 2) - 46) / 46
 		])
 	}
 	for (let q = 0; q < points.length; q += 4) {

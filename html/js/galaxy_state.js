@@ -36,7 +36,7 @@ function CreateGalaxyState() {
 		if (selectedStarIndex < 0 || selectedStarIndex === currentStarIndex) return
 		const a = galaxyStars[currentStarIndex]
 		const b = galaxyStars[selectedStarIndex]
-		line = CreateLineObject(ctx.gl, V3(a.x, 0.25, a.z), V3(b.x, 0.25, b.z), col)
+		line = CreateLineObject(V3(a.x, 0.25, a.z), V3(b.x, 0.25, b.z), col)
 		ctx.objects.push(line)
 		mine.push(line)
 	}
@@ -88,7 +88,7 @@ function CreateGalaxyState() {
 			for (let m = 0; m < currentMarker.objs.length; m++) mine.push(currentMarker.objs[m])
 			// reach ring: how far a hyperjump can go from the current star
 			const cur = galaxyStars[currentStarIndex]
-			mine.push(CreateRingObject(ctx.gl, V3(cur.x, 0.2, cur.z), GALAXY_JUMP_RADIUS, [0.3, 0.55, 0.4]))
+			mine.push(CreateRingObject(V3(cur.x, 0.2, cur.z), GALAXY_JUMP_RADIUS, [0.3, 0.55, 0.4]))
 			PushObjects(ctx, mine)
 
 			for (let i = 0; i < galaxyStars.length; i++) {

@@ -1,79 +1,33 @@
-// WebGL bootstrap, vec3/mat4 math, generic mesh upload.
-// Mesh generation lives in geometry.js. See docs/architecture.md.
+// WebGL bootstrap, vec3/mat4 math, generic mesh upload. `gl`, the Math aliases
+// and the GL_* enum consts live in include.js (loaded first). Mesh generation
+// lives in geometry.js. See docs/architecture.md.
 
-// Math aliases - these tokens repeat hundreds of times; closure mangles the
-// short globals to 1 char, so `Mr()` is ~9 bytes cheaper per call than
-// `Math.random()` before gzip. (Math.random/sin/cos/... don't need `this`.)
-const Mr = Math.random
-const Ms = Math.sin
-const Mc = Math.cos
-const Ma = Math.abs
-const Mfl = Math.floor
-const Mmin = Math.min
-const Mmax = Math.max
-const Msqrt = Math.sqrt
-const Matan2 = Math.atan2
-const PI = Math.PI
-
-// WebGL 1 enum values are fixed by the Khronos spec - identical in every
-// implementation - so hardcode them: `GL_ARRAY_BUFFER` is a 16-char property
-// lookup at every call site that closure can't rename (it's in the DOM
-// externs), but these numeric consts get inlined and the repeats gzip to
-// almost nothing. Names kept here for reference.
-const GL_DEPTH_TEST = 2929
-const GL_CULL_FACE = 2884
-const GL_COLOR_BUFFER_BIT = 16384
-const GL_DEPTH_BUFFER_BIT = 256
-const GL_ARRAY_BUFFER = 34962
-const GL_ELEMENT_ARRAY_BUFFER = 34963
-const GL_STATIC_DRAW = 35044
-const GL_FLOAT = 5126
-const GL_TRIANGLES = 4
-const GL_UNSIGNED_BYTE = 5121
-const GL_UNSIGNED_SHORT = 5123
-const GL_TEXTURE_2D = 3553
-const GL_RGBA = 6408
-const GL_TEXTURE_WRAP_S = 10242
-const GL_TEXTURE_WRAP_T = 10243
-const GL_TEXTURE_MIN_FILTER = 10241
-const GL_TEXTURE_MAG_FILTER = 10240
-const GL_LINEAR = 9729
-const GL_CLAMP_TO_EDGE = 33071
-const GL_REPEAT = 10497
-const GL_VERTEX_SHADER = 35633
-const GL_FRAGMENT_SHADER = 35632
-const GL_TEXTURE0 = 33984
-const GL_TEXTURE1 = 33985
-
-// `new Float32Array(` is 17 chars closure keeps verbatim; wrap it (used ~9x).
-function F32(a) { return new Float32Array(a) }
-
+// Sets the module-scope `gl` (include.js). Everything else just reads it.
 function InitGL(canvas) {
-	const gl = canvas.getContext('webgl', { antialias: true })
+	gl = canvas.getContext('webgl', { antialias: true })
 	gl.enable(GL_DEPTH_TEST)
 	gl.enable(GL_CULL_FACE)
 	gl.clearColor(0.03, 0.02, 0.07, 1)
-	return gl
 }
 
-function CompileShader(gl, type, src) {
+function CompileShader(type, src) {
 	const sh = gl.createShader(type)
 	gl.shaderSource(sh, src)
 	gl.compileShader(sh)
 	return sh
 }
 
-function CreateProgram(gl, vsSrc, fsSrc) {
+function CreateProgram(vsSrc, fsSrc) {
 	const prog = gl.createProgram()
-	gl.attachShader(prog, CompileShader(gl, GL_VERTEX_SHADER, vsSrc))
-	gl.attachShader(prog, CompileShader(gl, GL_FRAGMENT_SHADER, fsSrc))
+	gl.attachShader(prog, CompileShader(GL_VERTEX_SHADER, vsSrc))
+	gl.attachShader(prog, CompileShader(GL_FRAGMENT_SHADER, fsSrc))
 	gl.linkProgram(prog)
 	return prog
 }
 
 // Uploads a { positions, normals, indices } mesh (see geometry.js) into GL
 // buffers. Each object gets its own buffers - meshes are not shared/instanced.
-function UploadMesh(gl, mesh) {
+function UploadMesh(mesh) {
 	const posBuf = gl.createBuffer()
 	gl.bindBuffer(GL_ARRAY_BUFFER, posBuf)
 	gl.bufferData(GL_ARRAY_BUFFER, F32(mesh.positions), GL_STATIC_DRAW)
