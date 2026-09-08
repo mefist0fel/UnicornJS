@@ -4,6 +4,11 @@
 // a normal .button, so ClearUI() on the next SetState wipes it like any widget.
 // Add a command = add one { label, run } entry. See docs/ui.md.
 
+// Compile-time flag: true here (dev / --skip-minify / index.dev.html), but
+// build.py rewrites it to `!1` in the concatenated bundle before closure, so
+// the release DCEs every `if (DEBUG) ...` block and this whole file with it.
+const DEBUG = true
+
 const DEBUG_GLOBAL = [
 	{ label: '+50 Metal', run: () => AddRes(RES_METAL, 50) },
 	{ label: '+10 Fuel', run: () => AddRes(RES_FUEL, 10) },
@@ -26,7 +31,7 @@ function CreateDebugMenu(extra) {
 		if (!open) return
 		for (let i = 0; i < cmds.length; i++) {
 			const b = CreateButton(cmds[i].label, 'dbg', cmds[i].run)
-			b.className += ' slotbtn'
+			b.className += ' sb'
 			b.style.top = (7 + i * 3.4) + 'vmin'
 			b.style.background = '#1a1c22' // opaque - the open menu covers the editor rows
 			items.push(b)

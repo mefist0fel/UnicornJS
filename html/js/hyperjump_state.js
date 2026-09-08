@@ -44,14 +44,14 @@ function CreateHyperjumpState(onDone) {
 
 			// chase cam right behind the ship, on the tunnel axis, looking -z
 			ctx.camera.setConstraints({ minPhi: 0.05, maxPhi: PI - 0.05, minRadius: 5, maxRadius: 5, autoSpeed: 0 })
-			ctx.camera.position = V3(0, 0, 0)
+			ctx.camera.position = V3()
 			ctx.camera.theta = theta0
 			ctx.camera.phi = phi0
-			ctx.camera.radius = 5
+			ctx.camera.setDist(5)
 
 			for (const o of CreateShipModelObjects(ctx.gl)) mine.push(o)
 			for (let i = 0; i < ROWS; i++) {
-				const r = CreateMeshObject(ctx.gl, V3(0, 0, 0), GenRingOfCubes(34, 2.1, 0.14), 1, [0, 0, 0])
+				const r = CreateMeshObject(ctx.gl, V3(), GenRingOfCubes(34, 2.1, 0.14), 1, [0, 0, 0])
 				r.d = AHEAD + i * GAP // signed distance ahead along -z (d<0 = behind, +z)
 				r.hue = r.d * HUE_K
 				rows.push(r)
@@ -76,7 +76,7 @@ function CreateHyperjumpState(onDone) {
 			else k = Mmax(0, 1 - (t - SWING_IN - CRUISE) / SWING_BACK)
 			ctx.camera.theta = LerpAngle(theta0, theta0 + 0.13, k) // gentle lean, stay near-axis
 			ctx.camera.phi = phi0 - 0.1 * k
-			ctx.camera.update(dt)
+			ctx.camera.upd(dt)
 
 			for (const r of rows) {
 				r.d -= dt * SPEED

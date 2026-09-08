@@ -83,11 +83,15 @@ panRect }` (азимут `theta` не ограничивается ни в од�
 интерактивные состояния из своего `OnUpdate`:
 
 ```js
-if (inp.btn === 2) ctx.camera.rotate(-inp.pdx * 2.5, -inp.pdy * 2.5) // ПКМ: поворот
-ctx.camera.zoom(inp.wheel * 0.01)                                    // колесо: зум
-ctx.camera.update(dt)                                                // clamp по constraints
-if (inp.btn === 0) ctx.camera.panFromScreen(prevNDC, curNDC)         // ЛКМ: пан
+if (inp.btn === 2) ctx.camera.rot(-inp.pdx * 2.5, -inp.pdy * 2.5) // ПКМ: поворот (camera.rotate)
+ctx.camera.zm(inp.wheel * 0.0005)                                 // колесо: шаг по zoomT (camera.zoom)
+ctx.camera.upd(dt)                                                // radius = f(zoomT), clamp (camera.update)
+if (inp.btn === 0) ctx.camera.panFromScreen(prevNDC, curNDC)      // ЛКМ: пан
 ```
+
+Методы `rot`/`zm`/`upd` названы так руками: closure **не переименовывает** `.rotate`/`.zoom`/
+`.update` (совпадают с DOM-externs), поэтому короткие имена — наши, ~12 Б экономии, см.
+[optimization.md](optimization.md). Остальные методы камеры closure ужимает сам.
 
 - **Поворот — только ПКМ.** Обе дельты идут с минусом: `-pdx` — это «нормальное» горизонтальное
   вращение (тот же знак, что был у старого px-драга), а `-pdy` **инвертирует вертикаль**
@@ -99,8 +103,16 @@ if (inp.btn === 0) ctx.camera.panFromScreen(prevNDC, curNDC)         // ЛКМ: 
   зажимается в `panRect` (`{minX,maxX,minZ,maxZ}`); **пустой Rect (все нули) = камера
   приколочена к центру** и не двигается вообще. Если один из лучей не попал в пол (смотрим на
   горизонт), пан за этот кадр просто пропускается.
-- `camera.update(dt)` каждый кадр зажимает `phi`/`radius` по constraints и зовёт `clampPan()` —
-  никакой отдельной "анимации отскока" не нужно, clamp сам создаёт ощущение упора.
+- **Зум — нелинейный.** Колесо двигает `camera.zoomT` (0..1) на **фиксированный** шаг, а
+  `update()` каждый кадр выводит из него дистанцию: `radius = min + (max−min)·zoomT²`.
+  Квадрат → у ближней границы нотч колеса почти не двигает камеру (точная наводка на объект),
+  у дальней — проматывает большой кусок. Состояния задают стартовую дистанцию в мировых
+  единицах через `camera.setDist(r)` (обратная функция: `zoomT = √((r−min)/(max−min))`),
+  вызывать **после** `setConstraints()`. `zoomT` живёт на общей камере и переносится между
+  сценами, но каждый `OnEnter` перебивает его своим `setDist`.
+- `camera.upd(dt)` (в коде — `upd`, «update») каждый кадр зажимает `phi` по constraints, выводит `radius` из `zoomT`
+  (всегда в пределах `[min,max]`) и зовёт `clampPan()` — никакой отдельной «анимации отскока»
+  не нужно, clamp сам создаёт ощущение упора.
 
 Короткий клик ЛКМ (курсор почти не двигался) — это `clicked` для пикинга по сцене, отдельно от
 драга; ПКМ пикингом не считается.
@@ -154,7 +166,7 @@ dir = normalize(forward + right * ndcX * halfW + up * ndcY * halfH)
 ```js
 ctx.camera.theta = LerpAngle(theta0, targetTheta, k)   // LerpAngle в gl.js — по кратчайшей дуге
 ctx.camera.phi   = phi0 + (targetPhi - phi0) * k
-ctx.camera.update(dt)
+ctx.camera.upd(dt)                                     // upd = camera.update
 ```
 
 `theta0/phi0` снимаются в `OnEnter`. Для **локального перелёта** `targetTheta =

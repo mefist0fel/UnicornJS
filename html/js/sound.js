@@ -130,11 +130,13 @@ const Sfx = {
 	}
 }
 
-// weapon fire, keyed by damage kind (see FIRE_COLORS in modules.js)
+// weapon fire, keyed by damage kind (see FIRE_COLORS in modules.js).
+// keys quoted - SHOOT_SFX[kind] is a dynamic lookup, closure ADVANCED renames
+// unquoted literal keys and the string lookup would miss.
 const SHOOT_SFX = {
-	kinetic() { Tone({ type: 'square', freq: 440, freqEnd: 120, decay: 0.09, release: 0.04, vol: 0.1 }) },
-	plasma() { Tone({ type: 'sawtooth', freq: 720, freqEnd: 240, decay: 0.14, release: 0.08, vol: 0.1 }) },
-	rocket() { Noise({ dur: 0.3, filter: 'bandpass', cut: 900, cutEnd: 200, vol: 0.12 }) }
+	'kinetic'() { Tone({ type: 'square', freq: 440, freqEnd: 120, decay: 0.09, release: 0.04, vol: 0.1 }) },
+	'plasma'() { Tone({ type: 'sawtooth', freq: 720, freqEnd: 240, decay: 0.14, release: 0.08, vol: 0.1 }) },
+	'rocket'() { Noise({ dur: 0.3, filter: 'bandpass', cut: 900, cutEnd: 200, vol: 0.12 }) }
 }
 function SfxShoot(kind) {
 	const f = SHOOT_SFX[kind]

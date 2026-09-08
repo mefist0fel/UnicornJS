@@ -2,7 +2,7 @@
 // slots decoded from its schema string, see modules.js). The left panel is a
 // sectioned list - a "Ship" row (upgrades the frame), then WEAPONS / MODULES /
 // SUPPORT sections showing only the slots the current caps allow. Selecting a
-// row opens a target list (leftcol2); building or re-clicking the row closes
+// row opens a target list (l2); building or re-clicking the row closes
 // it. Empty slots draw nothing; a built module's cube is its 3D pick target.
 //
 // Combat is automatic and happens right here. Enemies arrive from the debug
@@ -13,7 +13,7 @@
 // heals the ship and (for a planet) clears its red marker. See docs/battle.md.
 
 const SHIP_ENEMY_DIST = 6
-const SHIP_PROJ_SPEED = { kinetic: 22, plasma: 16, rocket: 9 }
+const SHIP_PROJ_SPEED = { 'kinetic': 22, 'plasma': 16, 'rocket': 9 } // quoted: SHIP_PROJ_SPEED[kind] dynamic lookup, see FIRE_COLORS
 const SHIP_EXPL_DUR = 0.35
 
 function CreateShipState(opts) {
@@ -113,8 +113,8 @@ function CreateShipState(opts) {
 	}
 
 	// left/right lists are a stack of two block kinds sharing one 16vmin column:
-	//   - a .slotbtn (a real button: slot / conversion target)
-	//   - a .slotlife strip (no text, green fill = an hp fraction) for the ship,
+	//   - a .sb (a real button: slot / conversion target)
+	//   - a .sf strip (no text, green fill = an hp fraction) for the ship,
 	//     for a built support corvette, and for every hostile element on the right
 	// section dividers (the old WEAPONS/MODULES text headers) are gone - just a gap.
 	function lifeGrad(frac) {
@@ -125,7 +125,7 @@ function CreateShipState(opts) {
 	// a no-text health strip in `anchor`'s column at `top` vmin; returns the el
 	function lifeStrip(anchor, top, frac, into) {
 		const el = CreatePanel('', anchor)
-		el.className = anchor + ' slotlife'
+		el.className = anchor + ' sf'
 		el.style.top = top + 'vmin'
 		el.style.background = lifeGrad(frac)
 		into.push(el)
@@ -133,8 +133,8 @@ function CreateShipState(opts) {
 	}
 
 	function slotButton(top, label, onClick, isSel, pend) {
-		const b = CreateButton(pend ? MODULES[pend.id].name + '  ▸' + pend.secLeft + 's' : label, 'leftcol', onClick)
-		b.className += ' slotbtn'
+		const b = CreateButton(pend ? MODULES[pend.id].name + '  ▸' + pend.secLeft + 's' : label, 'lc', onClick)
+		b.className += ' sb'
 		b.style.top = top + 'vmin'
 		if (pend) {
 			const p = Math.round(pend.frac * 100)
@@ -154,7 +154,7 @@ function CreateShipState(opts) {
 		let y = 7 // leave room for the debug "D" button up top
 
 		// ship hp, then the ship frame slot
-		shipLifeEl = lifeStrip('leftcol', y, hpMax ? shipHp / hpMax : 1, rows)
+		shipLifeEl = lifeStrip('lc', y, hpMax ? shipHp / hpMax : 1, rows)
 		y += 2
 		slotButton(y, 'Ship: ' + MODULES[currentShipId].name, selectShip, selected === -2, PendingBuild(-1))
 		y += 3.2
@@ -165,7 +165,7 @@ function CreateShipState(opts) {
 				const s = shipSlots[i]
 				// a built support corvette is a mini-ship: show its hp above its button
 				if (type === SLOT_AUX && s.moduleId !== s.base) {
-					lifeStrip('leftcol', y, 1, rows) // corvettes don't take damage yet - full for now
+					lifeStrip('lc', y, 1, rows) // corvettes don't take damage yet - full for now
 					y += 2
 				}
 				slotButton(y, MODULES[s.moduleId].name, () => selectSlot(i), selected === i, PendingBuild(i))
@@ -177,10 +177,10 @@ function CreateShipState(opts) {
 		if (!tg) return
 		for (let k = 0; k < tg.length; k++) {
 			const t = tg[k]
-			const b = CreateButton(t.cost > 0 ? t.name + ' (' + t.cost + ')' : t.name, 'leftcol2', () => {
+			const b = CreateButton(t.cost > 0 ? t.name + ' (' + t.cost + ')' : t.name, 'l2', () => {
 				if (selected === -2 ? BuildShip(t.id) : BuildModule(selected, t.id)) afterBuild()
 			})
-			b.className += ' slotbtn'
+			b.className += ' sb'
 			b.style.top = (7 + k * 3.2) + 'vmin'
 			col2.push(b)
 		}
@@ -193,7 +193,7 @@ function CreateShipState(opts) {
 		enemyBars = []
 		const parts = liveParts()
 		for (let k = 0; k < parts.length; k++) {
-			enemyBars.push({ el: lifeStrip('rightcol', 7 + k * 2, parts[k].hp / parts[k].hpMax, []), part: parts[k] })
+			enemyBars.push({ el: lifeStrip('rc', 7 + k * 2, parts[k].hp / parts[k].hpMax, []), part: parts[k] })
 		}
 	}
 
@@ -203,8 +203,8 @@ function CreateShipState(opts) {
 		if (mapBtn) { mapBtn.remove(); mapBtn = null }
 		if (hyperBtn) { hyperBtn.remove(); hyperBtn = null }
 		if (enemies.length) return
-		mapBtn = CreateButton('Map', 'bottomleft', () => SetState(CreateSystemState()))
-		if (atStar) hyperBtn = CreateButton('Hyperjump', 'bottomright', () => SetState(CreateGalaxyState()))
+		mapBtn = CreateButton('Map', 'bl', () => SetState(CreateSystemState()))
+		if (atStar) hyperBtn = CreateButton('Hyperjump', 'br', () => SetState(CreateGalaxyState()))
 	}
 
 	// -------- enemies --------
@@ -221,7 +221,7 @@ function CreateShipState(opts) {
 			pos: at, hp, hpMax: hp, cells: dec.cells, objs,
 			weapons: weapons.map((w, k) => ({
 				fireKind: w.fireKind, dmg: w.dmg, rate: w.rate, cd: Mr() * w.rate,
-				from: AddV3(at, AddV3(dec.weapons[k] || dec.cells[0] || V3(0, 0, 0), V3(0, 0.3, 0)))
+				from: AddV3(at, AddV3(dec.weapons[k] || dec.cells[0] || V3(), V3(0, 0.3, 0)))
 			}))
 		}
 	}
@@ -266,7 +266,7 @@ function CreateShipState(opts) {
 
 	// random cell of `cells` (offset list) + a random point inside its volume
 	function scatter(cells) {
-		const c = cells[Mfl(Mr() * cells.length)] || V3(0, 0, 0)
+		const c = cells[Mfl(Mr() * cells.length)] || V3()
 		return AddV3(c, V3((Mr() - 0.5) * SHIP_CELL, (Mr() - 0.5) * SHIP_CELL, (Mr() - 0.5) * SHIP_CELL))
 	}
 
@@ -418,10 +418,10 @@ function CreateShipState(opts) {
 				minPhi: 0.25, maxPhi: 1.4, minRadius: 8, maxRadius: 70, autoSpeed: 0,
 				panRect: { minX: -12, maxX: 12, minZ: -12, maxZ: 12 }
 			})
-			ctx.camera.position = V3(0, 0, 0)
+			ctx.camera.position = V3()
 			ctx.camera.theta = PI / 2
 			ctx.camera.phi = 0.8
-			ctx.camera.radius = 22
+			ctx.camera.setDist(22)
 
 			rebuildHull(ctx)
 			rebuildViz(ctx)
@@ -432,7 +432,9 @@ function CreateShipState(opts) {
 
 			topPanel = CreatePanel(atStar ? 'Star Orbit' : 'Ship Bay', 'top')
 
-			CreateDebugMenu(ENEMY_ARCHETYPES.map(a => ({ label: 'Spawn ' + a.name, run: () => spawnEnemy(ctx, a) })).concat([
+			// DEBUG is compile-time false in the release build (see build.py) - closure
+			// then DCEs this whole block plus CreateDebugMenu/DEBUG_GLOBAL/ToggleMute.
+			if (DEBUG) CreateDebugMenu(ENEMY_ARCHETYPES.map(a => ({ label: 'Spawn ' + a.name, run: () => spawnEnemy(ctx, a) })).concat([
 				{
 					label: 'Preview: local jump', run: () => {
 						const ps = GetSystem(ctx, currentStarIndex).planets

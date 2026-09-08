@@ -39,11 +39,14 @@ var shipStats = []
 var currentShipId = 's1'
 var shipHp = 500
 
-// projectile / muzzle colour per damage kind, shared by player and enemy fire
+// projectile / muzzle colour per damage kind, shared by player and enemy fire.
+// KEYS ARE QUOTED: this object is looked up dynamically (FIRE_COLORS[kind]) and
+// closure ADVANCED renames unquoted literal keys, breaking the string lookup.
+// Same reason MODULES / SHIP_PROJ_SPEED / SHOOT_SFX quote their keys.
 const FIRE_COLORS = {
-	kinetic: [1, 0.9, 0.4],
-	plasma: [0.7, 0.35, 1],
-	rocket: [1, 0.55, 0.15]
+	'kinetic': [1, 0.9, 0.4],
+	'plasma': [0.7, 0.35, 1],
+	'rocket': [1, 0.55, 0.15]
 }
 
 // id -> { name, slot, cost, to:[id...], viz?, schema?, stats?, fireKind?,
@@ -51,19 +54,19 @@ const FIRE_COLORS = {
 //   viz: null (nothing drawn) | 'gun' (small cube) | 'corvette' (body + gun)
 const MODULES = {
 	// --- ship frames (central slot). schema + stat baseline. ---
-	s1: {
+	's1': {
 		name: 'Scout Frame', slot: SLOT_SHIP, cost: 0, to: ['s2'], buildTime: 5,
 		schema: '3.#.MWM###.#.|1474',
 		stats: { [STAT_HP]: 500, [STAT_WEAPONS]: 1, [STAT_MODULES]: 2, [STAT_SUPPORTS]: 2 }
 	},
-	s2: {
+	's2': {
 		// col->x, row->z, row 0 = nose (-z, forward). Symmetric arrow: 3 spine
 		// guns, 4 wing-root modules, 2 support slots on the sides.
 		name: 'Wing Frame', slot: SLOT_SHIP, cost: 30, to: ['s1', 's3'], buildTime: 5,
 		schema: '5..W..M###M##W##M###M.#W#.|0484',
 		stats: { [STAT_HP]: 900, [STAT_WEAPONS]: 3, [STAT_MODULES]: 3, [STAT_SUPPORTS]: 2 }
 	},
-	s3: {
+	's3': {
 		// 5 guns (2 nose + spine + 2 tips), 4 wing modules, 3 support (2 sides + 1 rear).
 		name: 'Battle Frame', slot: SLOT_SHIP, cost: 60, to: ['s2'], buildTime: 5,
 		schema: '5.W.W.M#W#MW###WM###M.###.|048448',
@@ -71,28 +74,28 @@ const MODULES = {
 	},
 
 	// --- weapons ---
-	wslot: { name: 'Weapon slot', slot: SLOT_WEAPON, cost: 0, to: ['kin1', 'roc1', 'pla1'], viz: null },
-	kin1: { name: 'Kinetic I', slot: SLOT_WEAPON, cost: 5, to: ['kin2', 'wslot'], viz: 'gun', fireKind: 'kinetic', dmg: 6, rate: 0.5 },
-	kin2: { name: 'Kinetic II', slot: SLOT_WEAPON, cost: 6, to: ['kin3', 'wslot'], viz: 'gun', fireKind: 'kinetic', dmg: 9, rate: 0.45 },
-	kin3: { name: 'Kinetic III', slot: SLOT_WEAPON, cost: 9, to: ['wslot'], viz: 'gun', fireKind: 'kinetic', dmg: 13, rate: 0.4 },
-	roc1: { name: 'Rocket I', slot: SLOT_WEAPON, cost: 5, to: ['roc2', 'wslot'], viz: 'gun', fireKind: 'rocket', dmg: 16, rate: 1.6 },
-	roc2: { name: 'Rocket II', slot: SLOT_WEAPON, cost: 6, to: ['roc3', 'wslot'], viz: 'gun', fireKind: 'rocket', dmg: 22, rate: 1.5 },
-	roc3: { name: 'Rocket III', slot: SLOT_WEAPON, cost: 9, to: ['wslot'], viz: 'gun', fireKind: 'rocket', dmg: 30, rate: 1.4 },
-	pla1: { name: 'Plasma I', slot: SLOT_WEAPON, cost: 7, to: ['pla2', 'wslot'], viz: 'gun', fireKind: 'plasma', dmg: 10, rate: 0.9 },
-	pla2: { name: 'Plasma II', slot: SLOT_WEAPON, cost: 8, to: ['pla3', 'wslot'], viz: 'gun', fireKind: 'plasma', dmg: 15, rate: 0.85 },
-	pla3: { name: 'Plasma III', slot: SLOT_WEAPON, cost: 11, to: ['wslot'], viz: 'gun', fireKind: 'plasma', dmg: 21, rate: 0.8 },
+	'wslot': { name: 'Weapon slot', slot: SLOT_WEAPON, cost: 0, to: ['kin1', 'roc1', 'pla1'], viz: null },
+	'kin1': { name: 'Kinetic I', slot: SLOT_WEAPON, cost: 5, to: ['kin2', 'wslot'], viz: 'gun', fireKind: 'kinetic', dmg: 6, rate: 0.5 },
+	'kin2': { name: 'Kinetic II', slot: SLOT_WEAPON, cost: 6, to: ['kin3', 'wslot'], viz: 'gun', fireKind: 'kinetic', dmg: 9, rate: 0.45 },
+	'kin3': { name: 'Kinetic III', slot: SLOT_WEAPON, cost: 9, to: ['wslot'], viz: 'gun', fireKind: 'kinetic', dmg: 13, rate: 0.4 },
+	'roc1': { name: 'Rocket I', slot: SLOT_WEAPON, cost: 5, to: ['roc2', 'wslot'], viz: 'gun', fireKind: 'rocket', dmg: 16, rate: 1.6 },
+	'roc2': { name: 'Rocket II', slot: SLOT_WEAPON, cost: 6, to: ['roc3', 'wslot'], viz: 'gun', fireKind: 'rocket', dmg: 22, rate: 1.5 },
+	'roc3': { name: 'Rocket III', slot: SLOT_WEAPON, cost: 9, to: ['wslot'], viz: 'gun', fireKind: 'rocket', dmg: 30, rate: 1.4 },
+	'pla1': { name: 'Plasma I', slot: SLOT_WEAPON, cost: 7, to: ['pla2', 'wslot'], viz: 'gun', fireKind: 'plasma', dmg: 10, rate: 0.9 },
+	'pla2': { name: 'Plasma II', slot: SLOT_WEAPON, cost: 8, to: ['pla3', 'wslot'], viz: 'gun', fireKind: 'plasma', dmg: 15, rate: 0.85 },
+	'pla3': { name: 'Plasma III', slot: SLOT_WEAPON, cost: 11, to: ['wslot'], viz: 'gun', fireKind: 'plasma', dmg: 21, rate: 0.8 },
 
 	// --- modules (PD + shields) ---
-	dslot: { name: 'Module slot', slot: SLOT_DEFENSE, cost: 0, to: ['shield', 'pd'], viz: null },
-	shield: { name: 'Shield', slot: SLOT_DEFENSE, cost: 6, to: ['shield2', 'dslot'], viz: 'gun', stats: { [STAT_SHIELD]: 150 } },
-	shield2: { name: 'Shield II', slot: SLOT_DEFENSE, cost: 9, to: ['dslot'], viz: 'gun', stats: { [STAT_SHIELD]: 280 } },
-	pd: { name: 'Point Defense', slot: SLOT_DEFENSE, cost: 6, to: ['dslot'], viz: 'gun', intercept: 0.35 },
+	'dslot': { name: 'Module slot', slot: SLOT_DEFENSE, cost: 0, to: ['shield', 'pd'], viz: null },
+	'shield': { name: 'Shield', slot: SLOT_DEFENSE, cost: 6, to: ['shield2', 'dslot'], viz: 'gun', stats: { [STAT_SHIELD]: 150 } },
+	'shield2': { name: 'Shield II', slot: SLOT_DEFENSE, cost: 9, to: ['dslot'], viz: 'gun', stats: { [STAT_SHIELD]: 280 } },
+	'pd': { name: 'Point Defense', slot: SLOT_DEFENSE, cost: 6, to: ['dslot'], viz: 'gun', intercept: 0.35 },
 
 	// --- support ships (corvettes) ---
-	aslot: { name: 'Support slot', slot: SLOT_AUX, cost: 0, to: ['corvKin', 'corvRoc', 'corvPd'], viz: null },
-	corvKin: { name: 'Kinetic Corvette', slot: SLOT_AUX, cost: 12, buildTime: 3.5, to: ['aslot'], viz: 'corvette', fireKind: 'kinetic', dmg: 8, rate: 0.5 },
-	corvRoc: { name: 'Rocket Corvette', slot: SLOT_AUX, cost: 14, buildTime: 3.5, to: ['aslot'], viz: 'corvette', fireKind: 'rocket', dmg: 20, rate: 1.5 },
-	corvPd: { name: 'PD Corvette', slot: SLOT_AUX, cost: 12, buildTime: 3.5, to: ['aslot'], viz: 'corvette', intercept: 0.3 }
+	'aslot': { name: 'Support slot', slot: SLOT_AUX, cost: 0, to: ['corvKin', 'corvRoc', 'corvPd'], viz: null },
+	'corvKin': { name: 'Kinetic Corvette', slot: SLOT_AUX, cost: 12, buildTime: 3.5, to: ['aslot'], viz: 'corvette', fireKind: 'kinetic', dmg: 8, rate: 0.5 },
+	'corvRoc': { name: 'Rocket Corvette', slot: SLOT_AUX, cost: 14, buildTime: 3.5, to: ['aslot'], viz: 'corvette', fireKind: 'rocket', dmg: 20, rate: 1.5 },
+	'corvPd': { name: 'PD Corvette', slot: SLOT_AUX, cost: 12, buildTime: 3.5, to: ['aslot'], viz: 'corvette', intercept: 0.3 }
 }
 
 // "<w><grid w*h>|<support pairs>" -> { w, h, cells, weapons, modules, supports }.

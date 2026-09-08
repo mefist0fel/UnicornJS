@@ -10,11 +10,17 @@ const ZERO_RECT = { minX: 0, maxX: 0, minZ: 0, maxZ: 0 }
 
 function CreateCamera() {
 	const cam = {
-		position: V3(0, 0, 0),
+		position: V3(),
 		offset: V3(0, 0, 8),
 		rotMat: Mat4FromBasis(V3(1, 0, 0), V3(0, 1, 0), V3(0, 0, 1)),
 		theta: 0,
 		phi: PI / 3,
+		// zoom is a normalised 0..1 "how far out" that the wheel nudges at a
+		// FIXED rate; `radius` is derived from it in update() as
+		// min + (max-min)*zoomT^2 - quadratic so a wheel notch barely moves the
+		// camera up close and sweeps a lot when already far out. States that
+		// think in world units call setDist(r) (back-solves zoomT).
+		zoomT: 0.5,
 		radius: 8,
 		minPhi: 0.05,
 		maxPhi: PI - 0.05,
@@ -44,13 +50,24 @@ function CreateCamera() {
 			this.panRect = c.panRect || ZERO_RECT
 		},
 
-		rotate(dTheta, dPhi) {
+		// short names (rot/zm/upd): closure won't rename `.rotate`/`.zoom`/`.update`
+		// (DOM-extern collision), so we do it by hand - ~15 bytes. See optimization.md.
+		rot(dTheta, dPhi) { // camera.rotate
 			this.theta += dTheta
 			this.phi += dPhi
 		},
 
-		zoom(dRadius) {
-			this.radius += dRadius
+		zm(dZoom) { // camera.zoom - nudge the 0..1 zoomT
+			this.zoomT = Mmin(1, Mmax(0, this.zoomT + dZoom))
+		},
+
+		// set the camera distance in world units - converts to zoomT via the
+		// inverse of update()'s quadratic map. Call after setConstraints().
+		setDist(r) {
+			const span = this.maxRadius - this.minRadius
+			const q = span > 0 ? Mmin(1, Mmax(0, (r - this.minRadius) / span)) : 0
+			this.zoomT = Msqrt(q)
+			this.radius = this.minRadius + span * this.zoomT * this.zoomT
 		},
 
 		// Move the orbit center so the ground point grabbed by prevNDC ends up
@@ -74,12 +91,12 @@ function CreateCamera() {
 			if (this.position[2] > r.maxZ) this.position[2] = r.maxZ
 		},
 
-		update(dt) {
+		upd(dt) { // camera.update: rebuild rotMat/offset from theta/phi/zoomT
 			if (this.autoSpeed) this.theta += this.autoSpeed * dt
 			if (this.phi < this.minPhi) this.phi = this.minPhi
 			if (this.phi > this.maxPhi) this.phi = this.maxPhi
-			if (this.radius < this.minRadius) this.radius = this.minRadius
-			if (this.radius > this.maxRadius) this.radius = this.maxRadius
+			// quadratic zoom: zoomT (0..1) -> distance, always within [min,max]
+			this.radius = this.minRadius + (this.maxRadius - this.minRadius) * this.zoomT * this.zoomT
 			this.clampPan()
 
 			const st = Ms(this.phi)
@@ -137,12 +154,12 @@ function planeHit(ray) {
 
 // Shared camera input for the interactive scenes: RMB drag orbits (vertical
 // inverted - both deltas negated), LMB drag pans along the ground, wheel
-// zooms. Fixed-framing states (menu) just call camera.update(dt) instead.
+// zooms. Fixed-framing states (menu) just call camera.upd(dt) instead.
 function ApplyCameraInput(ctx, dt) {
 	const inp = ctx.input
-	if (inp.btn === 2) ctx.camera.rotate(-inp.pdx * 2.5, -inp.pdy * 2.5)
-	ctx.camera.zoom(inp.wheel * 0.01)
-	ctx.camera.update(dt)
+	if (inp.btn === 2) ctx.camera.rot(-inp.pdx * 2.5, -inp.pdy * 2.5)
+	ctx.camera.zm(inp.wheel * 0.0005) // wheel -> fixed step on the 0..1 zoomT
+	ctx.camera.upd(dt)
 	if (inp.btn === 0) ctx.camera.panFromScreen([inp.px - inp.pdx, inp.py - inp.pdy], [inp.px, inp.py])
 }
 

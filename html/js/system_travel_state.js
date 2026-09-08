@@ -28,8 +28,8 @@ function CreateSystemTravelState(onDone, fromBody, toBody) {
 	let shipObjs = []
 	let decoObjs = []
 	let sys = null
-	let vFrom = V3(0, 0, 0)
-	let vTo = V3(0, 0, 0)
+	let vFrom = V3()
+	let vTo = V3()
 	let fwd = V3(0, 0, -1)  // unit heading in the xz plane
 	let rightV = V3(1, 0, 0) // fwd turned +90 in xz - spark lateral spread
 	let yaw = 0             // rotates the ship's local -z nose onto fwd
@@ -53,10 +53,10 @@ function CreateSystemTravelState(onDone, fromBody, toBody) {
 			Sfx.jump()
 
 			ctx.camera.setConstraints({ minPhi: 0.1, maxPhi: 1.5, minRadius: R_TUCK, maxRadius: R_FAR, autoSpeed: 0 })
-			ctx.camera.position = V3(0, 0, 0)
+			ctx.camera.position = V3()
 			ctx.camera.theta = theta0
 			ctx.camera.phi = phi0
-			ctx.camera.radius = R_FAR
+			ctx.camera.setDist(R_FAR)
 
 			shipObjs = CreateShipModelObjects(ctx.gl)
 			for (const o of shipObjs) o.base = o.position.slice()
@@ -78,7 +78,7 @@ function CreateSystemTravelState(onDone, fromBody, toBody) {
 
 			sparks = []
 			for (let i = 0; i < COUNT; i++) {
-				const p = CreateCubeObject(ctx.gl, V3(0, 0, 0), 1, [0, 0, 0])
+				const p = CreateCubeObject(ctx.gl, V3(), 1, [0, 0, 0])
 				p.scale = streakScale
 				p.loc = respawn()
 				sparks.push(p)
@@ -116,7 +116,7 @@ function CreateSystemTravelState(onDone, fromBody, toBody) {
 
 			// camera: tuck in behind the ship, hold, ease back to neutral
 			if (k === 1 && ctx.input.btn === 2) {
-				ctx.camera.rotate(-ctx.input.pdx * 2.5, -ctx.input.pdy * 2.5) // look around mid-cruise
+				ctx.camera.rot(-ctx.input.pdx * 2.5, -ctx.input.pdy * 2.5) // look around mid-cruise
 			} else if (k < 1 && t >= SWING_IN + CRUISE) {
 				ctx.camera.theta = LerpAngle(ctx.camera.theta, theta0, 0.12)
 				ctx.camera.phi += (phi0 - ctx.camera.phi) * 0.12
@@ -124,8 +124,8 @@ function CreateSystemTravelState(onDone, fromBody, toBody) {
 				ctx.camera.theta = LerpAngle(theta0, camTheta, k)
 				ctx.camera.phi = phi0 + (camPhi - phi0) * k
 			}
-			ctx.camera.radius = R_FAR + (R_TUCK - R_FAR) * k
-			ctx.camera.update(dt)
+			ctx.camera.setDist(R_FAR + (R_TUCK - R_FAR) * k)
+			ctx.camera.upd(dt)
 
 			// spark streaks travel back along fwd; brightness follows the envelope
 			for (const p of sparks) {

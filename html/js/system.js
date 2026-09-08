@@ -57,7 +57,7 @@ function GetSystem(ctx, starIndex) {
 	const starType = STAR_ARCHETYPES[Mfl(Mr() * STAR_ARCHETYPES.length)]
 	const starRadius = SYSTEM_STAR_BASE_RADIUS * starType.radius
 	const starOff = V3(Mr() * 7, Mr() * 7, Mr() * 7)
-	const star = CreatePlanetObject(ctx.gl, V3(0, 0, 0), starRadius, GetRamp(ctx.gl, starType.ramp), starType.planeScale, starOff, starType.drift, 1, 20, 26)
+	const star = CreatePlanetObject(ctx.gl, V3(), starRadius, GetRamp(ctx.gl, starType.ramp), starType.planeScale, starOff, starType.drift, 1, 20, 26)
 	star.radius += 0.3 // pad the *pick* sphere only (render scale is baked in already) - stars/planets shrank a lot, keep them clickable
 
 	const count = SYSTEM_PLANET_MIN + Mfl(Mr() * (SYSTEM_PLANET_MAX - SYSTEM_PLANET_MIN + 1))
@@ -77,7 +77,7 @@ function GetSystem(ctx, starIndex) {
 			for (let m = 0; m < moonCount; m++) {
 				const moff = V3(Mr() * 7, Mr() * 7, Mr() * 7)
 				moons.push({
-					object: CreatePlanetObject(ctx.gl, V3(0, 0, 0), radius * (0.2 + Mr() * 0.12), GetRamp(ctx.gl, MOON_ARCH.ramp), MOON_ARCH.planeScale, moff, MOON_ARCH.drift, 0, 10, 12),
+					object: CreatePlanetObject(ctx.gl, V3(), radius * (0.2 + Mr() * 0.12), GetRamp(ctx.gl, MOON_ARCH.ramp), MOON_ARCH.planeScale, moff, MOON_ARCH.drift, 0, 10, 12),
 					dist: radius * (1.8 + m * 0.9),
 					angle: Mr() * PI * 2,
 					speed: 0.5 + Mr() * 0.5
@@ -100,7 +100,7 @@ function GetSystem(ctx, starIndex) {
 			enemyCleared: false,
 			enemyArchetypes: hasEnemies ? RollPlanetEnemies() : null
 		})
-		rings.push(CreateRingObject(ctx.gl, V3(0, 0, 0), dist, SYSTEM_ORBIT_COLOR))
+		rings.push(CreateRingObject(ctx.gl, V3(), dist, SYSTEM_ORBIT_COLOR))
 	}
 	// Where the player's ship marker parks after a hyperjump (no planet yet):
 	// one ring outside the last planet.
@@ -145,7 +145,7 @@ function decoCopy(ctx, mapObj, radius, basePos) {
 function DecoSystem(ctx, sys) {
 	if (sys.deco) return sys.deco
 	const parts = [] // [{ obj, base }] - base = canonical deco world pos
-	parts.push({ obj: decoCopy(ctx, sys.star, sys.starRadius * DECO_STAR_RMUL, V3(0, 0, 0)), base: V3(0, 0, 0) })
+	parts.push({ obj: decoCopy(ctx, sys.star, sys.starRadius * DECO_STAR_RMUL, V3()), base: V3() })
 	for (const p of sys.planets) {
 		const dd = decoDist(p.dist)
 		p.decoBase = V3(Mc(p.angle) * dd, 0, Ms(p.angle) * dd)

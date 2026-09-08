@@ -322,7 +322,7 @@ HP + кнопками, см. [ui.md](ui.md)), `SlotTargets(i)` / `ShipTargets()`
 
 | файл                      | отвечает за |
 |----------------------------|-------------|
-| `gl.js`                    | WebGL-контекст, шейдеры, vec3/mat4 математика, загрузка меша в GL-буферы |
+| `gl.js`                    | WebGL-контекст, шейдеры, vec3/mat4 математика, загрузка меша в GL-буферы; `Math.*`-алиасы, числовые `GL_*` энумы (спец Khronos, хардкод — см. [optimization.md](optimization.md)), `F32()` |
 | `sound.js`                  | звук: свой мини-синт на Web Audio (`Tone`/`Noise`), пресеты `Sfx`/`SHOOT_SFX`, тикающий эмбиент (`MusicStart`/`MusicStop`), `ToggleMute`; см. [sound.md](sound.md) |
 | `geometry.js`               | генерация меш-данных: сфера/кубик/кольцо/`GenRingOfCubes` по коду и строково-закодированные меши, см. [meshformat.md](meshformat.md) |
 | `texture.js`                | процедурные текстуры: value-шум и градиенты-рампы из строк, см. [texture.md](texture.md) |
@@ -332,7 +332,7 @@ HP + кнопками, см. [ui.md](ui.md)), `SlotTargets(i)` / `ShipTargets()`
 | `ui.js`                     | DOM-панели и кнопки поверх канваса (см. [ui.md](ui.md)) |
 | `resources.js`              | ресурсы игрока (плоский массив `res`: Money/Fuel/Metal) + HUD в правом верхнем углу |
 | `modules.js`                | корабль: схемы-строки, статы, граф модулей, очередь сборки, `CreateShipModelObjects` (корабль для транзит-стейтов), архетипы врагов; см. [shipformat.md](shipformat.md) |
-| `debug.js`                  | дебаг-меню: кнопка `D` + список команд `{label, run}` (см. [ui.md](ui.md)) |
+| `debug.js`                  | дебаг-меню: кнопка `D` + список команд `{label, run}` (см. [ui.md](ui.md)); `const DEBUG` — `build.py` гасит его в релизе, closure DCE-ит весь дебаг-тулинг (см. [build.md](build.md)) |
 | `galaxy.js`                 | данные и кеш карты галактики (не состояние) |
 | `system.js`                 | данные и кеш солнечной системы (не состояние) |
 | `menu_state.js`              | состояние "меню" |

@@ -15,10 +15,43 @@ const Msqrt = Math.sqrt
 const Matan2 = Math.atan2
 const PI = Math.PI
 
+// WebGL 1 enum values are fixed by the Khronos spec - identical in every
+// implementation - so hardcode them: `GL_ARRAY_BUFFER` is a 16-char property
+// lookup at every call site that closure can't rename (it's in the DOM
+// externs), but these numeric consts get inlined and the repeats gzip to
+// almost nothing. Names kept here for reference.
+const GL_DEPTH_TEST = 2929
+const GL_CULL_FACE = 2884
+const GL_COLOR_BUFFER_BIT = 16384
+const GL_DEPTH_BUFFER_BIT = 256
+const GL_ARRAY_BUFFER = 34962
+const GL_ELEMENT_ARRAY_BUFFER = 34963
+const GL_STATIC_DRAW = 35044
+const GL_FLOAT = 5126
+const GL_TRIANGLES = 4
+const GL_UNSIGNED_BYTE = 5121
+const GL_UNSIGNED_SHORT = 5123
+const GL_TEXTURE_2D = 3553
+const GL_RGBA = 6408
+const GL_TEXTURE_WRAP_S = 10242
+const GL_TEXTURE_WRAP_T = 10243
+const GL_TEXTURE_MIN_FILTER = 10241
+const GL_TEXTURE_MAG_FILTER = 10240
+const GL_LINEAR = 9729
+const GL_CLAMP_TO_EDGE = 33071
+const GL_REPEAT = 10497
+const GL_VERTEX_SHADER = 35633
+const GL_FRAGMENT_SHADER = 35632
+const GL_TEXTURE0 = 33984
+const GL_TEXTURE1 = 33985
+
+// `new Float32Array(` is 17 chars closure keeps verbatim; wrap it (used ~9x).
+function F32(a) { return new Float32Array(a) }
+
 function InitGL(canvas) {
 	const gl = canvas.getContext('webgl', { antialias: true })
-	gl.enable(gl.DEPTH_TEST)
-	gl.enable(gl.CULL_FACE)
+	gl.enable(GL_DEPTH_TEST)
+	gl.enable(GL_CULL_FACE)
 	gl.clearColor(0.03, 0.02, 0.07, 1)
 	return gl
 }
@@ -32,8 +65,8 @@ function CompileShader(gl, type, src) {
 
 function CreateProgram(gl, vsSrc, fsSrc) {
 	const prog = gl.createProgram()
-	gl.attachShader(prog, CompileShader(gl, gl.VERTEX_SHADER, vsSrc))
-	gl.attachShader(prog, CompileShader(gl, gl.FRAGMENT_SHADER, fsSrc))
+	gl.attachShader(prog, CompileShader(gl, GL_VERTEX_SHADER, vsSrc))
+	gl.attachShader(prog, CompileShader(gl, GL_FRAGMENT_SHADER, fsSrc))
 	gl.linkProgram(prog)
 	return prog
 }
@@ -42,16 +75,16 @@ function CreateProgram(gl, vsSrc, fsSrc) {
 // buffers. Each object gets its own buffers - meshes are not shared/instanced.
 function UploadMesh(gl, mesh) {
 	const posBuf = gl.createBuffer()
-	gl.bindBuffer(gl.ARRAY_BUFFER, posBuf)
-	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(mesh.positions), gl.STATIC_DRAW)
+	gl.bindBuffer(GL_ARRAY_BUFFER, posBuf)
+	gl.bufferData(GL_ARRAY_BUFFER, F32(mesh.positions), GL_STATIC_DRAW)
 
 	const normBuf = gl.createBuffer()
-	gl.bindBuffer(gl.ARRAY_BUFFER, normBuf)
-	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(mesh.normals), gl.STATIC_DRAW)
+	gl.bindBuffer(GL_ARRAY_BUFFER, normBuf)
+	gl.bufferData(GL_ARRAY_BUFFER, F32(mesh.normals), GL_STATIC_DRAW)
 
 	const idxBuf = gl.createBuffer()
-	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, idxBuf)
-	gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(mesh.indices), gl.STATIC_DRAW)
+	gl.bindBuffer(GL_ELEMENT_ARRAY_BUFFER, idxBuf)
+	gl.bufferData(GL_ELEMENT_ARRAY_BUFFER, new Uint16Array(mesh.indices), GL_STATIC_DRAW)
 
 	return { posBuf, normBuf, idxBuf, count: mesh.indices.length }
 }
@@ -93,7 +126,7 @@ function NormV3(a) {
 
 // ---- mat4, column-major (WebGL convention) ----
 function Mat4Multiply(a, b) {
-	const o = new Float32Array(16)
+	const o = F32(16)
 	for (let c = 0; c < 4; c++) {
 		for (let r = 0; r < 4; r++) {
 			let sum = 0
@@ -107,7 +140,7 @@ function Mat4Multiply(a, b) {
 function Mat4Perspective(fovy, aspect, near, far) {
 	const f = 1 / Math.tan(fovy / 2)
 	const nf = 1 / (near - far)
-	return new Float32Array([
+	return F32([
 		f / aspect, 0, 0, 0,
 		0, f, 0, 0,
 		0, 0, (far + near) * nf, -1,
@@ -120,7 +153,7 @@ function Mat4LookAt(eye, target, up) {
 	const z = NormV3(SubV3(eye, target))
 	const x = NormV3(CrossV3(up, z))
 	const y = CrossV3(z, x)
-	return new Float32Array([
+	return F32([
 		x[0], y[0], z[0], 0,
 		x[1], y[1], z[1], 0,
 		x[2], y[2], z[2], 0,
@@ -131,7 +164,7 @@ function Mat4LookAt(eye, target, up) {
 // Rotation matrix from three orthonormal world-space axes (columns).
 // Used by camera.js to expose its orientation as a real matrix, see docs/camera.md.
 function Mat4FromBasis(right, up, back) {
-	return new Float32Array([
+	return F32([
 		right[0], right[1], right[2], 0,
 		up[0], up[1], up[2], 0,
 		back[0], back[1], back[2], 0,
@@ -158,7 +191,7 @@ function Mat4TranslateScale(position, scale) {
 	const sx = scale.length ? scale[0] : scale
 	const sy = scale.length ? scale[1] : scale
 	const sz = scale.length ? scale[2] : scale
-	return new Float32Array([
+	return F32([
 		sx, 0, 0, 0,
 		0, sy, 0, 0,
 		0, 0, sz, 0,

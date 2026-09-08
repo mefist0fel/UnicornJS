@@ -22,6 +22,10 @@ INDEX_HTML = HTML_DIR / 'index.html'
 BUNDLE_JS = PACKED_DIR / 'bundle.js'
 BUNDLE_MIN_JS = PACKED_DIR / 'bundle.min.js'
 OUT_HTML = PACKED_DIR / 'index.html'
+# same page, unminified sources inlined - open this to get real stack traces
+# (the minified build mangles names; ADVANCED-mode bugs only show here as the
+# original identifiers). Written on every build, never zipped.
+DEV_HTML = PACKED_DIR / 'index.dev.html'
 PACKED_ZIP = PACKED_DIR / 'game.zip'
 DIST_ZIP = ROOT_DIR / 'dist' / 'game.zip'
 SCRIPT_TAG_RE = re.compile(r'[ \t]*<script src="(js/[^"]+\.js)"></script>\n?')
@@ -77,12 +81,22 @@ def main():
 	skip_minify = '--skip-minify' in sys.argv[1:]
 	html, matches, bundle = concat_sources()
 
+	# always refresh the unminified full-inline page for debugging
+	write(DEV_HTML, inline_script(html, matches, bundle))
+	print(f'wrote {DEV_HTML} (unminified, full sources inlined, no zip)')
+
 	if skip_minify:
 		write(OUT_HTML, inline_script(html, matches, bundle))
-		size = len(bundle.encode('utf-8'))
-		print(f'wrote {BUNDLE_JS} ({size} bytes, unminified)')
-		print(f'wrote {OUT_HTML} (unminified sanity build, no zip)')
+		print(f'wrote {BUNDLE_JS} + {OUT_HTML} (unminified sanity build, no zip)')
 		return
+
+	# release: kill the debug flag so closure DCEs every `if (DEBUG) ...` block
+	# (debug menu, enemy spawners, preview jumps) and debug.js with it.
+	n = bundle.count('const DEBUG = true')
+	if n != 1:
+		sys.exit(f'expected exactly one `const DEBUG = true` in the bundle, found {n}')
+	bundle = bundle.replace('const DEBUG = true', 'const DEBUG = !1')
+	write(BUNDLE_JS, bundle)
 
 	minify()
 

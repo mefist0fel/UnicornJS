@@ -20,9 +20,9 @@ function CreateGalaxyState() {
 		if (btn) { btn.remove(); btn = null }
 		if (selectedStarIndex < 0) return
 		if (selectedStarIndex === currentStarIndex) {
-			btn = CreateButton('V', 'bottomleft', () => SetState(CreateShipState({ atStar: true })))
+			btn = CreateButton('V', 'bl', () => SetState(CreateShipState({ atStar: true })))
 		} else if (canReach) {
-			btn = CreateButton('>', 'bottomright', () => TryJump(ctx))
+			btn = CreateButton('>', 'br', () => TryJump(ctx))
 		}
 	}
 
@@ -75,8 +75,8 @@ function CreateGalaxyState() {
 				minPhi: 0.2, maxPhi: PI / 2 - 0.05, minRadius: 12, maxRadius: 40, autoSpeed: 0,
 				panRect: { minX: -14, maxX: 14, minZ: -14, maxZ: 14 }
 			})
-			ctx.camera.position = V3(0, 0, 0)
-			ctx.camera.radius = 26
+			ctx.camera.position = V3()
+			ctx.camera.setDist(26)
 			ctx.camera.phi = 1.0
 
 			markerAngle = 0

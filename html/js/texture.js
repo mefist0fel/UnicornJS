@@ -11,13 +11,13 @@
 // (the noise texture); ramps are Nx1 and use CLAMP.
 function MakeTexture(gl, w, h, data, repeat) {
 	const tex = gl.createTexture()
-	gl.bindTexture(gl.TEXTURE_2D, tex)
-	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, data)
-	const wrap = repeat ? gl.REPEAT : gl.CLAMP_TO_EDGE
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrap)
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wrap)
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+	gl.bindTexture(GL_TEXTURE_2D, tex)
+	gl.texImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, data)
+	const wrap = repeat ? GL_REPEAT : GL_CLAMP_TO_EDGE
+	gl.texParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrap)
+	gl.texParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrap)
+	gl.texParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
+	gl.texParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
 	return tex
 }
 
@@ -25,13 +25,13 @@ function MakeTexture(gl, w, h, data, repeat) {
 // octave, cosine-interpolated between grid points, octaves at frequency
 // 4, 8, 16 with halving amplitude, summed and remapped to 0..1. Grid
 // indices wrap (`% freq`) so the result tiles seamlessly - the triplanar
-// sampler reads it with gl.REPEAT. `size` must be power-of-two. Stopping at
+// sampler reads it with GL_REPEAT. `size` must be power-of-two. Stopping at
 // freq 16 (no 1/32 octave) keeps surfaces readable rather than sandpapery.
 function GenNoiseTexture(gl, size = 64) {
-	const acc = new Float32Array(size * size)
+	const acc = F32(size * size)
 	let amp = 1
 	for (let freq = 4; freq <= size / 4; freq *= 2) {
-		const g = new Float32Array(freq * freq)
+		const g = F32(freq * freq)
 		for (let i = 0; i < g.length; i++) g[i] = Mr() * 2 - 1
 		for (let y = 0; y < size; y++) {
 			const fy = y / size * freq

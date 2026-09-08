@@ -10,7 +10,9 @@ dist/
 # Generated js13k build output (see docs/build.md) - build.py itself is tracked
 html/packed/bundle.js
 html/packed/bundle.min.js
+html/packed/bundle.min.formatted.js
 html/packed/index.html
+html/packed/index.dev.html
 html/packed/game.zip
 
 # Compiled Java class files

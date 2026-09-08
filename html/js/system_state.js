@@ -18,7 +18,7 @@ function CreateSystemState() {
 	let mine = []
 	let sys = null
 	let ship = null
-	let shipTarget = V3(0, 0, 0)
+	let shipTarget = V3()
 	let shipOrbitRadius = 1
 	let shipAngle = 0
 	let selected = false
@@ -27,7 +27,7 @@ function CreateSystemState() {
 	let eventMarkers = [] // [{ marker, planet }]
 	let markerAngle = 0
 
-	function tgtPos(t) { return t === PARK_STAR ? V3(0, 0, 0) : t.object.position }
+	function tgtPos(t) { return t === PARK_STAR ? V3() : t.object.position }
 	function tgtRad(t) { return t === PARK_STAR ? sys.starRadius : t.radius }
 
 	function selectTarget(ctx, t) {
@@ -40,7 +40,7 @@ function CreateSystemState() {
 				ctx.objects.push(pickMarker.objs[i])
 				mine.push(pickMarker.objs[i])
 			}
-			CreateButton('Jump', 'bottomright', () => TryJump(ctx))
+			CreateButton('Jump', 'br', () => TryJump(ctx))
 		}
 	}
 
@@ -66,8 +66,8 @@ function CreateSystemState() {
 				minPhi: 0.15, maxPhi: PI / 2 - 0.05, minRadius: 4, maxRadius: 22, autoSpeed: 0,
 				panRect: { minX: -8, maxX: 8, minZ: -8, maxZ: 8 }
 			})
-			ctx.camera.position = V3(0, 0, 0)
-			ctx.camera.radius = 13
+			ctx.camera.position = V3()
+			ctx.camera.setDist(13)
 			ctx.camera.phi = 0.85
 
 			sys = GetSystem(ctx, currentStarIndex)
@@ -81,16 +81,16 @@ function CreateSystemState() {
 
 			const parked = sys.parkedPlanet
 			if (parked === PARK_STAR) {
-				shipTarget = V3(0, 0, 0)
+				shipTarget = V3()
 				shipOrbitRadius = sys.starRadius * 2.6 + SYSTEM_SHIP_ORBIT_PAD
 			} else if (parked) {
 				shipTarget = parked.object.position
 				shipOrbitRadius = parked.radius * 2.2 + SYSTEM_SHIP_ORBIT_PAD
 			} else {
-				shipTarget = V3(0, 0, 0)
+				shipTarget = V3()
 				shipOrbitRadius = sys.outerRadius
 			}
-			ship = CreateShipObject(ctx.gl, V3(0, 0, 0), [0.4, 1, 0.45], SYSTEM_SHIP_SCALE)
+			ship = CreateShipObject(ctx.gl, V3(), [0.4, 1, 0.45], SYSTEM_SHIP_SCALE)
 			const shipRing = CreateRingObject(ctx.gl, shipTarget, shipOrbitRadius, [0.4, 0.7, 0.5])
 			mine.push(ship, shipRing)
 
@@ -117,7 +117,7 @@ function CreateSystemState() {
 			shipAngle = Mr() * PI * 2
 			markerAngle = 0
 			CreatePanel('System - pick a planet or the star, then Jump', 'top')
-			CreateButton('Return to ship', 'bottomleft', () => SetState(CreateShipState()))
+			CreateButton('Return to ship', 'bl', () => SetState(CreateShipState()))
 		},
 
 		OnExit(ctx) {

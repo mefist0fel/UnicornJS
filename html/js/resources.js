@@ -18,7 +18,7 @@ const res = [20, 10, 100]
 var resHud = null
 
 function InitResHud() {
-	resHud = document.getElementById('hud')
+	resHud = document.getElementById('h')
 	RenderResHud()
 }
 

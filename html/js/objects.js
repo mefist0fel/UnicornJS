@@ -11,7 +11,7 @@ var objLoc = null
 // render(viewProj) - only the planet shader needs them (eye for the rim
 // light, time for the drift animation), so globals spare every other
 // object's render() call from carrying unused arguments.
-var camEyePos = V3(0, 0, 0)
+var camEyePos = V3()
 var gTime = 0
 
 // Flat-lit solid-colour shader for cubes/rings/lines. GLSL identifiers are
@@ -58,21 +58,21 @@ function CreateMeshObject(gl, position, mesh, scale, color, emissive) {
 		render(viewProj) {
 			gl.useProgram(objProgram)
 
-			gl.bindBuffer(gl.ARRAY_BUFFER, buf.posBuf)
+			gl.bindBuffer(GL_ARRAY_BUFFER, buf.posBuf)
 			gl.enableVertexAttribArray(objLoc.aPos)
-			gl.vertexAttribPointer(objLoc.aPos, 3, gl.FLOAT, false, 0, 0)
+			gl.vertexAttribPointer(objLoc.aPos, 3, GL_FLOAT, false, 0, 0)
 
-			gl.bindBuffer(gl.ARRAY_BUFFER, buf.normBuf)
+			gl.bindBuffer(GL_ARRAY_BUFFER, buf.normBuf)
 			gl.enableVertexAttribArray(objLoc.aNormal)
-			gl.vertexAttribPointer(objLoc.aNormal, 3, gl.FLOAT, false, 0, 0)
+			gl.vertexAttribPointer(objLoc.aNormal, 3, GL_FLOAT, false, 0, 0)
 
-			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buf.idxBuf)
+			gl.bindBuffer(GL_ELEMENT_ARRAY_BUFFER, buf.idxBuf)
 
 			const mvp = Mat4Multiply(viewProj, Mat4TranslateScale(this.position, this.scale))
 			gl.uniformMatrix4fv(objLoc.uMvp, false, mvp)
 			gl.uniform3fv(objLoc.uColor, this.color)
 			gl.uniform3fv(objLoc.uEmissive, this.emissive)
-			gl.drawElements(gl.TRIANGLES, buf.count, gl.UNSIGNED_SHORT, 0)
+			gl.drawElements(GL_TRIANGLES, buf.count, GL_UNSIGNED_SHORT, 0)
 		}
 	}
 }
@@ -110,7 +110,7 @@ function CreateLineObject(gl, a, b, color, width = 0.09) {
 	]
 	const normals = [0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0]
 	const indices = [0, 1, 2, 0, 2, 3, 0, 2, 1, 0, 3, 2]
-	return CreateMeshObject(gl, V3(0, 0, 0), { positions, normals, indices }, 1, color)
+	return CreateMeshObject(gl, V3(), { positions, normals, indices }, 1, color)
 }
 
 // A spherical shell of white cubes as the star-sky backdrop. Points are
@@ -151,7 +151,7 @@ function CreateShipObject(gl, position, color, scale = 0.5) {
 // growing angle, same idiom as the ship orbiting a body.
 function CreateOrbitMarkers(gl, count, size, color) {
 	const objs = []
-	for (let i = 0; i < count; i++) objs.push(CreateCubeObject(gl, V3(0, 0, 0), size, color))
+	for (let i = 0; i < count; i++) objs.push(CreateCubeObject(gl, V3(), size, color))
 	return {
 		objs,
 		update(center, radius, angle) {
@@ -234,21 +234,21 @@ function CreatePlanetObject(gl, position, radius, rampTex, planeScale, offset, d
 		render(viewProj) {
 			gl.useProgram(planetProgram)
 
-			gl.bindBuffer(gl.ARRAY_BUFFER, buf.posBuf)
+			gl.bindBuffer(GL_ARRAY_BUFFER, buf.posBuf)
 			gl.enableVertexAttribArray(planetLoc.aPos)
-			gl.vertexAttribPointer(planetLoc.aPos, 3, gl.FLOAT, false, 0, 0)
+			gl.vertexAttribPointer(planetLoc.aPos, 3, GL_FLOAT, false, 0, 0)
 
-			gl.bindBuffer(gl.ARRAY_BUFFER, buf.normBuf)
+			gl.bindBuffer(GL_ARRAY_BUFFER, buf.normBuf)
 			gl.enableVertexAttribArray(planetLoc.aNormal)
-			gl.vertexAttribPointer(planetLoc.aNormal, 3, gl.FLOAT, false, 0, 0)
+			gl.vertexAttribPointer(planetLoc.aNormal, 3, GL_FLOAT, false, 0, 0)
 
-			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buf.idxBuf)
+			gl.bindBuffer(GL_ELEMENT_ARRAY_BUFFER, buf.idxBuf)
 
-			gl.activeTexture(gl.TEXTURE0)
-			gl.bindTexture(gl.TEXTURE_2D, noiseTex)
+			gl.activeTexture(GL_TEXTURE0)
+			gl.bindTexture(GL_TEXTURE_2D, noiseTex)
 			gl.uniform1i(planetLoc.uNoise, 0)
-			gl.activeTexture(gl.TEXTURE1)
-			gl.bindTexture(gl.TEXTURE_2D, this.rampTex)
+			gl.activeTexture(GL_TEXTURE1)
+			gl.bindTexture(GL_TEXTURE_2D, this.rampTex)
 			gl.uniform1i(planetLoc.uRamp, 1)
 
 			const model = Mat4TranslateScale(this.position, this.scale)
@@ -260,7 +260,7 @@ function CreatePlanetObject(gl, position, radius, rampTex, planeScale, offset, d
 			gl.uniform1f(planetLoc.uTime, gTime)
 			gl.uniform1f(planetLoc.uEmissive, this.emissive)
 			gl.uniform3fv(planetLoc.uEye, camEyePos)
-			gl.drawElements(gl.TRIANGLES, buf.count, gl.UNSIGNED_SHORT, 0)
+			gl.drawElements(GL_TRIANGLES, buf.count, GL_UNSIGNED_SHORT, 0)
 		}
 	}
 }

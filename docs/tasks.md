@@ -176,6 +176,24 @@ RMB-поворот (вертикаль инвертирована) + LMB-пан 
 **Репорт:** [optimization.md](optimization.md) — замеры, «где байты», что не работает,
 бэклог с оценками.
 
+**Заход 4 (−366 Б в релизе):**
+- **баг-фикс:** закавычены ключи `MODULES`/`FIRE_COLORS`/`SHIP_PROJ_SPEED`/`SHOOT_SFX` —
+  closure `ADVANCED` их переименовывал, минифицированная сборка падала на «Play»
+  ([build.md](build.md)). `build.py` пишет `index.dev.html` (неминифицированный) для отладки.
+- **дебаг-тулинг вырезан из релиза (−329 Б):** `const DEBUG`, `if (DEBUG) CreateDebugMenu(…)`,
+  `build.py` гасит флаг перед closure → DCE всего дебаг-меню.
+- **короткие CSS-имена (−37 Б):** `#ui`→`#u`, `#hud`→`#h`, `bottomleft/…/rightcol`→`bl/…/rc`,
+  `slotbtn/slotlife`→`sb/sf`.
+- мимо: `function`→стрелки (0/+4 Б), `V3(0,0,0)`→`V3()` (0 Б, оставлено), `CreateHoldButton`
+  удалён (был мёртвый). Про «сжатие 60 %» — это метрика типизации closure, не компрессия;
+  реальный deflate минифицированного JS ~58 %, это норма (см. [optimization.md](optimization.md)).
+
+**Заход 3 — сделано (−126 Б zip):** WebGL-энумы → числовые `GL_*` в `gl.js` (спец Khronos,
+рантайм-сверка 24 значений), `F32()` вместо `new Float32Array`, камера `update/rotate/zoom`
+→ `upd/rot/zm` (closure их не манглит — DOM-externs). **Главный вывод:** обёртки-сокращалки
+(строковые константы, ключи данных, обёртки методов Web Audio) = **0 Б** — closure инлайнит
+литералы, gzip жмёт повторы. Полная таблица проверенных «мимо» — [optimization.md](optimization.md).
+
 **Заход 2 — сделано (−26 Б zip, 14619 → 14593):** дедуп `vizColor`→`shipVizColor`, новый
 `PushObjects(ctx, list)` вместо 7 циклов push. `GenNoiseTexture` 2 октавы — проверено, 0 Б,
 отклонено. Детали — [optimization.md](optimization.md).
