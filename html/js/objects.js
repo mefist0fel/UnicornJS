@@ -260,8 +260,12 @@ function CreatePlanetObject(gl, position, radius, rampTex, planeScale, offset, d
 	}
 }
 
-// Removes every object in `list` from ctx.objects - states use this in
-// OnExit to clean up exactly what they added, see docs/architecture.md.
+// Bulk add/remove for ctx.objects - states use these in OnEnter/OnExit to
+// register and then clean up exactly the objects they own, see
+// docs/architecture.md.
+function PushObjects(ctx, list) {
+	for (let i = 0; i < list.length; i++) ctx.objects.push(list[i])
+}
 function RemoveObjects(ctx, list) {
 	for (let i = 0; i < list.length; i++) {
 		const idx = ctx.objects.indexOf(list[i])

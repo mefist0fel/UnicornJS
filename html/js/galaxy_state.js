@@ -89,7 +89,7 @@ function CreateGalaxyState() {
 			// reach ring: how far a hyperjump can go from the current star
 			const cur = galaxyStars[currentStarIndex]
 			mine.push(CreateRingObject(ctx.gl, V3(cur.x, 0.2, cur.z), GALAXY_JUMP_RADIUS, [0.3, 0.55, 0.4]))
-			for (let i = 0; i < mine.length; i++) ctx.objects.push(mine[i])
+			PushObjects(ctx, mine)
 
 			for (let i = 0; i < galaxyStars.length; i++) {
 				galaxyStars[i].object.onClick = () => selectStar(ctx, i)

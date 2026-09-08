@@ -47,12 +47,6 @@ function CreateShipState(opts) {
 		i = live.indexOf(o); if (i !== -1) live.splice(i, 1)
 	}
 
-	function vizColor(m) {
-		if (m.fireKind) return FIRE_COLORS[m.fireKind]
-		if (m.intercept) return [0.9, 0.9, 0.95]
-		return [0.4, 0.85, 1] // shield
-	}
-
 	// -------- ship build / edit --------
 
 	function rebuildHull(ctx) {
@@ -74,14 +68,14 @@ function CreateShipState(opts) {
 		const p = shipSlots[i].pos
 		const m = MODULES[shipSlots[i].moduleId]
 		if (m.viz === 'gun') {
-			const g = CreateCubeObject(ctx.gl, V3(p[0], 0.45, p[2]), 0.28, vizColor(m))
+			const g = CreateCubeObject(ctx.gl, V3(p[0], 0.45, p[2]), 0.28, shipVizColor(m))
 			g.radius = 0.3
 			g.onClick = () => selectSlot(i)
 			slotViz[i].push(g)
 			addLive(ctx, g)
 		} else if (m.viz === 'corvette') {
 			const body = CreateCubeObject(ctx.gl, V3(p[0], 0, p[2]), 0.5, [0.7, 0.72, 0.8])
-			const gun = CreateCubeObject(ctx.gl, V3(p[0], 0.42, p[2]), 0.22, vizColor(m))
+			const gun = CreateCubeObject(ctx.gl, V3(p[0], 0.42, p[2]), 0.22, shipVizColor(m))
 			gun.radius = 0.35
 			gun.onClick = () => selectSlot(i)
 			slotViz[i].push(body, gun)
@@ -366,16 +360,20 @@ function CreateShipState(opts) {
 			DecoSystem(ctx, sys)
 			PlaceDeco(sys, opts.planet || (atStar ? PARK_STAR : null))
 			sysBackdrop = sys.deco.parts.map(p => p.obj)
-			for (const o of sysBackdrop) ctx.objects.push(o)
+			PushObjects(ctx, sysBackdrop)
 
+			// camera orbits the ship/platform at the origin; the parked planet is
+			// a ~250-unit giant ~250-1300 units off to one side (see DecoVicinity).
+			// Pull-back range lets you frame the platform or take in the planet;
+			// pan stays inside the ~20-unit platform.
 			ctx.camera.setConstraints({
-				minPhi: 0.25, maxPhi: 1.35, minRadius: 4, maxRadius: 18, autoSpeed: 0,
-				panRect: { minX: -4, maxX: 4, minZ: -4, maxZ: 4 }
+				minPhi: 0.25, maxPhi: 1.4, minRadius: 8, maxRadius: 70, autoSpeed: 0,
+				panRect: { minX: -12, maxX: 12, minZ: -12, maxZ: 12 }
 			})
 			ctx.camera.position = V3(0, 0, 0)
 			ctx.camera.theta = PI / 2
 			ctx.camera.phi = 0.8
-			ctx.camera.radius = 10
+			ctx.camera.radius = 22
 
 			rebuildHull(ctx)
 			rebuildViz(ctx)

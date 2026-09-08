@@ -110,37 +110,49 @@ function GetSystem(ctx, starIndex) {
 	return sys
 }
 
-// ---- decoration scale ----
+// ---- decoration scale (a.k.a. the TRUE scale) ----
 //
-// The map (system_state) draws the system tiny and caricature-tight. When the
-// ship "hangs" somewhere in the system (ship_state, system_travel_state) we
-// want the real thing: one body looming nearby, the rest strung far out, the
-// star way off. That's a SEPARATE set of CreatePlanetObject instances (bigger
-// radii, distances blown up non-linearly, more tessellation on the big ones),
-// cached on sys.deco. The ship stays at the origin; we move the whole system.
-const DECO_SCALE = 7  // planet<->star distances blow up this much
-const DECO_RADIUS = 5 // body radii blow up this much
+// The map (system_state) draws the system tiny and caricature-tight - the whole
+// thing fits the same ~20-unit patch the ship's build platform occupies. When
+// the ship "hangs" in the system (ship_state, system_travel_state) we want the
+// honest thing instead: you sit on a ~20-unit platform on a planet's orbit, the
+// planet a 200-300 unit giant a few hundred units off filling half the sky, the
+// other bodies distant specks, the star a small far disc. That's a SEPARATE set
+// of CreatePlanetObject instances (radii x1000, orbit distances x140), cached
+// on sys.deco. The ship stays at the origin; we slide the whole system so the
+// parked body's "vicinity" lands on the origin.
+//
+// Noise is sampled in object space on a UNIT sphere (objects.js), so a planet
+// shows the exact same surface at map radius ~0.2 and deco radius ~250 - the
+// ramp/offset/planeScale are copied verbatim and size only ever comes from the
+// model matrix. Don't bake radius into a mesh or this breaks.
+const DECO_ORBIT = 140     // orbit distances: map ~2..9 -> ~280..1300
+const DECO_RADIUS = 1000   // body radii: map ~0.2 -> ~200
+const DECO_STAR_RMUL = 90  // the star stays a comparatively small distant disc
+const DECO_PLATFORM_GAP = 45 // ship-to-planet-limb clearance at the vicinity point
 
 function decoDist(d) {
-	return (d - 2) * DECO_SCALE + d * 1.5 // inner bodies close, outer ones far
+	return d * DECO_ORBIT
 }
 
 function decoCopy(ctx, mapObj, radius, basePos) {
-	const lat = Mmax(14, Mmin(46, Math.round(12 + radius * 6)))
+	// tessellation scales with apparent size but flattens out (sqrt) - a
+	// 250-unit planet doesn't need 250x the triangles of a moon.
+	const lat = Mmax(16, Mmin(56, Math.round(16 + Msqrt(radius) * 2)))
 	return CreatePlanetObject(ctx.gl, basePos.slice(), radius, mapObj.rampTex, mapObj.planeScale, mapObj.offset, mapObj.drift, mapObj.emissive, lat, Math.round(lat * 1.3))
 }
 
 function DecoSystem(ctx, sys) {
 	if (sys.deco) return sys.deco
 	const parts = [] // [{ obj, base }] - base = canonical deco world pos
-	parts.push({ obj: decoCopy(ctx, sys.star, sys.starRadius * DECO_RADIUS, V3(0, 0, 0)), base: V3(0, 0, 0) })
+	parts.push({ obj: decoCopy(ctx, sys.star, sys.starRadius * DECO_STAR_RMUL, V3(0, 0, 0)), base: V3(0, 0, 0) })
 	for (const p of sys.planets) {
 		const dd = decoDist(p.dist)
 		p.decoBase = V3(Mc(p.angle) * dd, 0, Ms(p.angle) * dd)
 		p.decoRadius = p.radius * DECO_RADIUS
 		parts.push({ obj: decoCopy(ctx, p.object, p.decoRadius, p.decoBase), base: p.decoBase })
 		for (const m of p.moons) {
-			const mb = AddV3(p.decoBase, V3(Mc(m.angle) * m.dist * DECO_RADIUS * 3, 0, Ms(m.angle) * m.dist * DECO_RADIUS * 3))
+			const mb = AddV3(p.decoBase, V3(Mc(m.angle) * m.dist * DECO_RADIUS, 0, Ms(m.angle) * m.dist * DECO_RADIUS))
 			parts.push({ obj: decoCopy(ctx, m.object, m.object.scale * DECO_RADIUS, mb), base: mb })
 		}
 	}
@@ -148,10 +160,17 @@ function DecoSystem(ctx, sys) {
 	return sys.deco
 }
 
-// Where the ship hangs, in deco world coords - beside the parked body.
+// Where the ship hangs, in deco world coords - a platform ON the parked body's
+// orbit, offset along the orbit tangent by one planet-radius + a gap so the
+// planet looms off to one side rather than dead ahead.
 function DecoVicinity(sys, body) {
-	if (body && body !== PARK_STAR) return AddV3(body.decoBase, V3(body.decoRadius * 2.2 + 3, 0, 0))
-	return V3(sys.starRadius * DECO_RADIUS * 2.2 + 4, 0, 0)
+	if (body && body !== PARK_STAR) {
+		const b = body.decoBase
+		const r = LenV3(b) || 1
+		const tang = V3(-b[2] / r, 0, b[0] / r) // unit orbit tangent
+		return AddV3(b, ScaleV3(tang, body.decoRadius + DECO_PLATFORM_GAP))
+	}
+	return V3(sys.starRadius * DECO_STAR_RMUL + DECO_PLATFORM_GAP + 30, 0, 0)
 }
 
 // Offset every deco part so the ship (origin) sits at `body`'s vicinity.

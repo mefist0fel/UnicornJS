@@ -56,7 +56,7 @@ function CreateHyperjumpState(onDone) {
 				rows.push(r)
 				mine.push(r)
 			}
-			for (const o of mine) ctx.objects.push(o)
+			PushObjects(ctx, mine)
 
 			CreatePanel('Hyperjump...', 'top')
 		},

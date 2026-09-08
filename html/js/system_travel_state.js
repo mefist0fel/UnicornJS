@@ -1,19 +1,22 @@
 // Local travel transition: planet-to-planet (or to the star's orbit) inside a
 // system. The real modular ship (CreateShipModelObjects) sits at the origin
-// facing -z. The whole system is drawn at decoration scale (system.js) and
-// slides: at t=0 the ship sits at fromBody's vicinity, over the effect it ends
-// up at toBody's vicinity - "we jump between patches but see the effect". Long
-// spark streaks fly past along the world z axis; the camera leans toward the
-// slide direction, then returns. See docs/tasks.md (block 3).
+// facing -z. The whole system is drawn at TRUE scale (system.js) and slides:
+// at t=0 the ship sits at fromBody's vicinity (that planet a giant filling half
+// the sky), over the effect it ends up at toBody's vicinity - so the planet you
+// left recedes to a speck while the target swells from a dot to a giant, and
+// you can RMB-look around mid-cruise to watch it. Long spark streaks fly past
+// along the world z axis; the camera leans toward the slide, then returns.
+// See docs/tasks.md (block 3) and the deco-scale note in system.js.
 
 function CreateSystemTravelState(onDone, fromBody, toBody) {
-	const COUNT = 52
+	const COUNT = 90
 	const SWING_IN = 0.35
 	const CRUISE = 1.9
 	const SWING_BACK = 0.35
 	const TOTAL = SWING_IN + CRUISE + SWING_BACK
-	const AHEAD = 30
-	const BEHIND = 12
+	const AHEAD = 500   // spark field length ahead along -z (true scale)
+	const BEHIND = 150
+	const SPARK_SPEED = 420
 	let t = 0
 	let sparks = []
 	let shipObjs = []
@@ -27,18 +30,18 @@ function CreateSystemTravelState(onDone, fromBody, toBody) {
 	let camPhi = 0
 
 	function respawn() {
-		return V3((Mr() * 2 - 1) * 8, (Mr() * 2 - 1) * 6, -AHEAD * (0.25 + Mr() * 0.75))
+		return V3((Mr() * 2 - 1) * 60, (Mr() * 2 - 1) * 45, -AHEAD * (0.25 + Mr() * 0.75))
 	}
 
 	return {
 		OnEnter(ctx) {
 			t = 0
 
-			ctx.camera.setConstraints({ minPhi: 0.1, maxPhi: 1.5, minRadius: 8, maxRadius: 8, autoSpeed: 0 })
+			ctx.camera.setConstraints({ minPhi: 0.1, maxPhi: 1.5, minRadius: 24, maxRadius: 24, autoSpeed: 0 })
 			ctx.camera.position = V3(0, 0, 0)
 			ctx.camera.theta = theta0
 			ctx.camera.phi = phi0
-			ctx.camera.radius = 8
+			ctx.camera.radius = 24
 
 			shipObjs = CreateShipModelObjects(ctx.gl)
 
@@ -51,12 +54,12 @@ function CreateSystemTravelState(onDone, fromBody, toBody) {
 			sparks = []
 			for (let i = 0; i < COUNT; i++) {
 				const p = CreateCubeObject(ctx.gl, respawn(), 1, [1, 1, 1])
-				p.scale = [0.05, 0.05, 1.1]
+				p.scale = [0.2, 0.2, 12]
 				sparks.push(p)
 			}
-			for (const o of shipObjs) ctx.objects.push(o)
-			for (const o of decoObjs) ctx.objects.push(o)
-			for (const o of sparks) ctx.objects.push(o)
+			PushObjects(ctx, shipObjs)
+			PushObjects(ctx, decoObjs)
+			PushObjects(ctx, sparks)
 
 			const heading = Matan2(vTo[2] - vFrom[2], vTo[0] - vFrom[0])
 			camTheta = heading + PI + 0.18
@@ -85,12 +88,21 @@ function CreateSystemTravelState(onDone, fromBody, toBody) {
 			if (t < SWING_IN) k = t / SWING_IN
 			else if (t < SWING_IN + CRUISE) k = 1
 			else k = Mmax(0, 1 - (t - SWING_IN - CRUISE) / SWING_BACK)
-			ctx.camera.theta = LerpAngle(theta0, camTheta, k)
-			ctx.camera.phi = phi0 + (camPhi - phi0) * k
+			if (k === 1 && ctx.input.btn === 2) {
+				// cruising: let the player look around (watch the giant recede)
+				ctx.camera.rotate(-ctx.input.pdx * 2.5, -ctx.input.pdy * 2.5)
+			} else if (k < 1 && t >= SWING_IN + CRUISE) {
+				// swing back to neutral from wherever the look-around left us
+				ctx.camera.theta = LerpAngle(ctx.camera.theta, theta0, 0.12)
+				ctx.camera.phi += (phi0 - ctx.camera.phi) * 0.12
+			} else {
+				ctx.camera.theta = LerpAngle(theta0, camTheta, k)
+				ctx.camera.phi = phi0 + (camPhi - phi0) * k
+			}
 			ctx.camera.update(dt)
 
 			for (const p of sparks) {
-				p.position = V3(p.position[0], p.position[1], p.position[2] + dt * 30)
+				p.position = V3(p.position[0], p.position[1], p.position[2] + dt * SPARK_SPEED)
 				if (p.position[2] > BEHIND) p.position = respawn()
 			}
 

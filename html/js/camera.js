@@ -24,8 +24,12 @@ function CreateCamera() {
 		panRect: ZERO_RECT,
 		fov: 50 * PI / 180,
 		aspect: 1,
-		near: 0.1,
-		far: 200,
+		// far has to clear the true-scale system drawn in ship_state /
+		// system_travel (a ~250-unit planet a few hundred units off, the far
+		// bodies ~2000 out). near is kept well above 0 for depth precision at
+		// that range - every scene keeps its close geometry past ~0.3 units.
+		near: 0.3,
+		far: 6000,
 
 		// Called by state OnEnter() when entering a scene - swaps the limits,
 		// does not teleport the camera (out-of-range phi/radius/position just

@@ -103,7 +103,7 @@ function CreateSystemState() {
 				for (let m = 0; m < marker.objs.length; m++) mine.push(marker.objs[m])
 			}
 
-			for (let i = 0; i < mine.length; i++) ctx.objects.push(mine[i])
+			PushObjects(ctx, mine)
 
 			sys.star.onClick = () => selectTarget(ctx, PARK_STAR)
 			for (let i = 0; i < sys.planets.length; i++) {
