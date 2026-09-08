@@ -22,7 +22,7 @@ function CreateGalaxyState() {
 		if (selectedStarIndex === currentStarIndex) {
 			btn = CreateButton('V', 'bottomleft', () => SetState(CreateSystemState()))
 		} else if (canReach) {
-			btn = CreateButton('>', 'bottomleft', () => TryJump(ctx))
+			btn = CreateButton('>', 'bottomright', () => TryJump(ctx))
 		}
 	}
 

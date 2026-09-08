@@ -39,7 +39,7 @@ function CreateSystemState() {
 				ctx.objects.push(pickMarker.objs[i])
 				mine.push(pickMarker.objs[i])
 			}
-			CreateButton('Jump', 'bottomleft', () => TryJump(ctx))
+			CreateButton('Jump', 'bottomright', () => TryJump(ctx))
 		}
 	}
 
@@ -50,7 +50,7 @@ function CreateSystemState() {
 		SetState(CreateSystemTravelState(() => CreateShipState({
 			planet,
 			enemies: planetNeedsEventMarker(planet) ? planet.enemyArchetypes : null
-		})))
+		}), planet.object.position))
 	}
 
 	return {
@@ -102,7 +102,7 @@ function CreateSystemState() {
 			shipAngle = Math.random() * Math.PI * 2
 			markerAngle = 0
 			CreatePanel('System - star to leave, planet to jump', 'top')
-			CreateButton('Return to ship', 'bottomright', () => SetState(CreateShipState()))
+			CreateButton('Return to ship', 'bottomleft', () => SetState(CreateShipState()))
 		},
 
 		OnExit(ctx) {

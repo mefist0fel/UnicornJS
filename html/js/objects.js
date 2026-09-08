@@ -126,6 +126,23 @@ function CreateLineObject(gl, a, b, color, width = 0.09) {
 	return CreateMeshObject(gl, V3(0, 0, 0), { positions, normals, indices }, 1, color)
 }
 
+// A spherical shell of small white cubes as a static star-sky backdrop.
+// Points are sampled in a cube and kept only if MIN < |p| < R, so the result
+// is roughly uniform on the sphere with an empty pocket around the origin (no
+// stars sitting on top of the scene). Sizes skew small (random*random).
+// main.js renders these every frame before ctx.objects, independent of state.
+function CreateStarfield(gl, count = 180) {
+	const out = []
+	const R = 150
+	while (out.length < count) {
+		const p = V3((Math.random() * 2 - 1) * R, (Math.random() * 2 - 1) * R, (Math.random() * 2 - 1) * R)
+		const d = LenV3(p)
+		if (d < 70 || d > R) continue
+		out.push(CreateCubeObject(gl, p, 0.2 + Math.random() * Math.random() * 0.9, [1, 1, 1]))
+	}
+	return out
+}
+
 // Ship marker - same "cube" shape as CreateCubeObject, but built from the
 // string-encoded mesh (see geometry.js) as its one real use in the game.
 // The encoded cube's corners sit at +-1 rather than +-0.5, hence the extra

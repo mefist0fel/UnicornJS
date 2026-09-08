@@ -76,6 +76,39 @@ function GenRingMesh(segments = 40, thickness = 0.008) {
 	return { positions, normals, indices }
 }
 
+// `seg` little cubes evenly on a circle of `radius` in the XY plane (so the
+// ring faces down +Z, the hyperjump tunnel axis). Baked into one mesh - a
+// whole ring is a single object/draw-call/colour (hyperjump_state moves and
+// recolours rows of these). Cube corners at +-size.
+function GenRingOfCubes(seg, radius, size) {
+	const positions = []
+	const normals = []
+	const indices = []
+	// unit cube corners, CCW per face as seen from outside (same winding as GenCubeMesh)
+	const faces = [
+		[[0, 0, 1], [-1, -1, 1, 1, -1, 1, 1, 1, 1, -1, 1, 1]],
+		[[0, 0, -1], [1, -1, -1, -1, -1, -1, -1, 1, -1, 1, 1, -1]],
+		[[1, 0, 0], [1, -1, 1, 1, -1, -1, 1, 1, -1, 1, 1, 1]],
+		[[-1, 0, 0], [-1, -1, -1, -1, -1, 1, -1, 1, 1, -1, 1, -1]],
+		[[0, 1, 0], [-1, 1, 1, 1, 1, 1, 1, 1, -1, -1, 1, -1]],
+		[[0, -1, 0], [-1, -1, -1, 1, -1, -1, 1, -1, 1, -1, -1, 1]]
+	]
+	for (let i = 0; i < seg; i++) {
+		const a = i * Math.PI * 2 / seg
+		const cx = Math.cos(a) * radius, cy = Math.sin(a) * radius
+		for (let f = 0; f < 6; f++) {
+			const n = faces[f][0], v = faces[f][1]
+			const base = positions.length / 3
+			for (let k = 0; k < 4; k++) {
+				positions.push(cx + v[k * 3] * size, cy + v[k * 3 + 1] * size, v[k * 3 + 2] * size)
+				normals.push(n[0], n[1], n[2])
+			}
+			indices.push(base, base + 1, base + 2, base, base + 2, base + 3)
+		}
+	}
+	return { positions, normals, indices }
+}
+
 // ---- string-encoded meshes ----
 //
 // A mesh can be written as one short JS string literal instead of an array

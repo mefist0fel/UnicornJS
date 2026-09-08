@@ -56,6 +56,15 @@ function CrossV3(a, b) {
 }
 function DotV3(a, b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2] }
 function LenV3(a) { return Math.sqrt(DotV3(a, a)) }
+
+// Interpolate angle a -> b along the shortest arc (used for the travel-state
+// camera swing, where theta can wrap past +-PI).
+function LerpAngle(a, b, t) {
+	let d = (b - a) % (Math.PI * 2)
+	if (d > Math.PI) d -= Math.PI * 2
+	if (d < -Math.PI) d += Math.PI * 2
+	return a + d * t
+}
 function NormV3(a) {
 	const l = LenV3(a) || 1
 	return [a[0] / l, a[1] / l, a[2] / l]

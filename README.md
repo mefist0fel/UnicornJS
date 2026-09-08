@@ -7,12 +7,14 @@
 
 ## Документация
 
+- [docs/tasks.md](docs/tasks.md) — бэклог крупных блоков работ (что сделано / в очереди)
 - [docs/concept.md](docs/concept.md) — концепт игры, игровой цикл, ресурсы, статус
 - [docs/architecture.md](docs/architecture.md) — организация кода: стейт-машина, объекты, конвенции
 - [docs/camera.md](docs/camera.md) — орбитальная камера и её ограничители по сценам
 - [docs/ui.md](docs/ui.md) — система панелей/кнопок/баров (DOM-хак поверх WebGL)
 - [docs/battle.md](docs/battle.md) — боевая система: механика, варианты дизайна, баланс
 - [docs/meshformat.md](docs/meshformat.md) — формат меша, закодированного в строке
+- [docs/shipformat.md](docs/shipformat.md) — формат корабля (корпус + слоты) в строке
 - [docs/texture.md](docs/texture.md) — процедурные текстуры: value-шум и градиенты-рампы
 - [docs/build.md](docs/build.md) — сборка, минификация, контроль размера
 

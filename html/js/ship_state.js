@@ -1,12 +1,16 @@
-// Ship state: the hub. The player's modular ship sits at the origin; a
-// left-hand two-column list edits its slots (column 1 = slots, column 2 =
-// conversion targets for the selected slot - see modules.js). A slot is also
-// pickable in 3D (its pad cube). Combat is automatic and happens right here:
-// enemies arrive via "Debug: Spawn Enemy" or from a planet with hostiles
-// (opts.enemies); every built weapon auto-fires at the nearest live enemy
-// element (frigates have their own hp), point-defense rolls to shoot down
-// incoming rockets. Player hp hitting 0 -> menu; clearing all hostiles heals
-// the ship and (for a planet) clears its red marker. See docs/battle.md.
+// Ship state: the hub. The player's modular ship sits at the origin (hull +
+// slots decoded from its schema string, see modules.js). The left panel is a
+// sectioned list - a "Ship" row (upgrades the frame), then WEAPONS / MODULES /
+// SUPPORT sections showing only the slots the current caps allow. Selecting a
+// row opens a target list (leftcol2); building or re-clicking the row closes
+// it. Empty slots draw nothing; a built module's cube is its 3D pick target.
+//
+// Combat is automatic and happens right here. Enemies arrive from the debug
+// menu or from a planet with hostiles (opts.enemies). Every active weapon
+// auto-fires from its gun-cube at the nearest live enemy element, aiming at a
+// random cell + a random point inside that cell's volume. Point-defense rolls
+// to shoot down incoming rockets. Player hp 0 -> menu; clearing all hostiles
+// heals the ship and (for a planet) clears its red marker. See docs/battle.md.
 
 const SHIP_ENEMY_DIST = 6
 const SHIP_PROJ_SPEED = { kinetic: 22, plasma: 16, rocket: 9 }
@@ -15,23 +19,24 @@ const SHIP_EXPL_DUR = 0.35
 function CreateShipState(opts) {
 	opts = opts || {}
 	let ctxRef = null
-	let mine = []        // static objects owned by this state (hull + pads)
-	let live = []        // dynamic objects (module viz, projectiles, effects, enemies)
-	let slotViz = []     // slotViz[i] = [objs] for slot i
-	let pads = []
+	let live = []          // every 3D object this state owns
+	let hullCubes = []
+	let slotViz = {}        // slot index -> [objs]
+	let playerCells = []
 	let enemies = []
 	let projectiles = []
 	let effects = []
 	let turrets = []
-	let selected = -1
-	let col1 = []
+	let selected = -1       // shipSlots index, -2 = the Ship row, -1 = none
+	let rows = []
 	let col2 = []
 	let mapBtn = null
 	let bars = null
 	let topPanel = null
-	let hpMax = SHIP_HP_MAX
+	let hpMax = 0
 	let wasHostile = false
 	let dead = false
+	let buildRefreshT = 0
 
 	function addLive(ctx, o) { ctx.objects.push(o); live.push(o) }
 	function delLive(ctx, o) {
@@ -45,86 +50,111 @@ function CreateShipState(opts) {
 		return [0.4, 0.85, 1] // shield
 	}
 
-	function padColor(i, sel) {
-		if (sel) return [1, 0.9, 0.4]
-		const t = shipSlots[i].type
-		return t === SLOT_WEAPON ? [0.5, 0.35, 0.35] : t === SLOT_DEFENSE ? [0.35, 0.45, 0.5] : [0.4, 0.4, 0.35]
+	// -------- ship build / edit --------
+
+	function rebuildHull(ctx) {
+		for (const c of hullCubes) delLive(ctx, c)
+		hullCubes = []
+		const dec = DecodeShipSchema(MODULES[currentShipId].schema)
+		playerCells = dec.cells
+		for (const p of dec.cells) {
+			const cube = CreateCubeObject(ctx.gl, V3(p[0], 0, p[2]), 0.5, [0.32, 0.34, 0.4])
+			hullCubes.push(cube)
+			addLive(ctx, cube)
+		}
 	}
 
 	function syncSlotViz(ctx, i) {
-		for (const o of slotViz[i]) delLive(ctx, o)
+		if (slotViz[i]) for (const o of slotViz[i]) delLive(ctx, o)
 		slotViz[i] = []
+		if (ActiveSlots(shipSlots[i].type).indexOf(i) === -1) return // inactive slot: nothing
 		const p = shipSlots[i].pos
-		const m = SlotModule(i)
+		const m = MODULES[shipSlots[i].moduleId]
 		if (m.viz === 'gun') {
 			const g = CreateCubeObject(ctx.gl, V3(p[0], 0.45, p[2]), 0.28, vizColor(m))
+			g.radius = 0.3
+			g.onClick = () => selectSlot(i)
 			slotViz[i].push(g)
 			addLive(ctx, g)
 		} else if (m.viz === 'corvette') {
 			const body = CreateCubeObject(ctx.gl, V3(p[0], 0, p[2]), 0.5, [0.7, 0.72, 0.8])
 			const gun = CreateCubeObject(ctx.gl, V3(p[0], 0.42, p[2]), 0.22, vizColor(m))
+			gun.radius = 0.35
+			gun.onClick = () => selectSlot(i)
 			slotViz[i].push(body, gun)
 			addLive(ctx, body)
 			addLive(ctx, gun)
 		}
 	}
 
-	function buildShip(ctx) {
-		for (let c = 0; c < HULL_COLS; c++) {
-			for (let r = 0; r < HULL_ROWS; r++) {
-				const cube = CreateCubeObject(ctx.gl, hullPos(c, r), 0.5, [0.32, 0.34, 0.4])
-				mine.push(cube)
-			}
-		}
-		for (let i = 0; i < shipSlots.length; i++) {
-			const s = shipSlots[i]
-			const pad = CreateCubeObject(ctx.gl, V3(s.pos[0], 0.15, s.pos[2]), 0.34, padColor(i, false))
-			pad.radius = 0.34
-			pad.onClick = () => selectSlot(i)
-			pads.push(pad)
-			mine.push(pad)
-			slotViz[i] = []
-		}
-	}
-
-	function highlightPads() {
-		for (let i = 0; i < pads.length; i++) pads[i].color = padColor(i, i === selected)
+	function rebuildViz(ctx) {
+		for (const k in slotViz) for (const o of slotViz[k]) delLive(ctx, o)
+		slotViz = {}
+		for (let i = 0; i < shipSlots.length; i++) syncSlotViz(ctx, i)
 	}
 
 	function selectSlot(i) {
-		selected = i
-		highlightPads()
+		if (PendingBuild(i)) return // slot busy building - ignore
+		selected = i === selected ? -1 : i
+		refreshLists()
+	}
+
+	function selectShip() {
+		if (PendingBuild(-1)) return
+		selected = selected === -2 ? -1 : -2
+		refreshLists()
+	}
+
+	// A build was just *queued* (metal charged); nothing is installed yet -
+	// TickBuilds() in OnUpdate does the actual resync when it finishes. Here we
+	// only close the target list and redraw so the pending row shows its timer.
+	function afterBuild() {
+		selected = -1
 		refreshLists()
 	}
 
 	function refreshLists() {
-		for (const b of col1) b.remove()
+		for (const b of rows) b.remove()
 		for (const b of col2) b.remove()
-		col1 = []
+		rows = []
 		col2 = []
-		const list = ShipModuleList()
-		for (let k = 0; k < list.length; k++) {
-			const it = list[k]
-			const b = CreateButton(it.name, 'leftcol', () => selectSlot(it.index))
+
+		let y = 7 // leave room for the debug "D" button up top
+		for (const r of ShipModuleList()) {
+			if (r.kind === 'hdr') {
+				const el = CreatePanel(r.label, 'leftcol')
+				el.className = 'leftcol slothdr'
+				el.style.top = y + 'vmin'
+				rows.push(el)
+				y += 2.6
+				continue
+			}
+			const slotId = r.kind === 'ship' ? -1 : r.index
+			const pend = PendingBuild(slotId)
+			const b = CreateButton(
+				pend ? MODULES[pend.id].name + '  ▸' + pend.secLeft + 's' : r.label,
+				'leftcol', r.kind === 'ship' ? selectShip : () => selectSlot(r.index))
 			b.className += ' slotbtn'
-			b.style.top = (3 + k * 5) + 'vmin'
-			if (it.index === selected) b.style.background = '#ffffff66'
-			col1.push(b)
+			b.style.top = y + 'vmin'
+			if (pend) {
+				const p = Math.round(pend.frac * 100)
+				b.style.background = 'linear-gradient(90deg,#3a7a4aee ' + p + '%,#ffffff22 ' + p + '%)'
+			} else if (r.kind === 'ship' ? selected === -2 : selected === r.index) {
+				b.style.background = '#ffffff66'
+			}
+			rows.push(b)
+			y += 3.2
 		}
-		if (selected < 0) return
-		const tg = SlotTargets(selected)
+
+		const tg = selected === -2 ? ShipTargets() : selected >= 0 ? SlotTargets(selected) : null
+		if (!tg) return
 		for (let k = 0; k < tg.length; k++) {
 			const t = tg[k]
 			const b = CreateButton(t.cost > 0 ? t.name + ' (' + t.cost + ')' : t.name, 'leftcol2', () => {
-				if (BuildModule(selected, t.id)) {
-					syncSlotViz(ctxRef, selected)
-					turrets = PlayerTurrets()
-					hpMax = ShipHpMax()
-					refreshLists()
-				}
+				if (selected === -2 ? BuildShip(t.id) : BuildModule(selected, t.id)) afterBuild()
 			})
 			b.className += ' slotbtn'
-			b.style.top = (3 + k * 5) + 'vmin'
+			b.style.top = (7 + k * 3.2) + 'vmin'
 			col2.push(b)
 		}
 	}
@@ -132,43 +162,52 @@ function CreateShipState(opts) {
 	function updateMapBtn() {
 		const hostile = enemies.length > 0
 		if (hostile && mapBtn) { mapBtn.remove(); mapBtn = null }
-		if (!hostile && !mapBtn) mapBtn = CreateButton('Map', 'bottomright', () => SetState(CreateSystemState()))
+		if (!hostile && !mapBtn) mapBtn = CreateButton('Map', 'bottomleft', () => SetState(CreateSystemState()))
+	}
+
+	// -------- enemies --------
+
+	function makeEnemyShip(ctx, schema, hp, weapons, color, at) {
+		const dec = DecodeShipSchema(schema)
+		const objs = []
+		for (const p of dec.cells) {
+			const o = CreateCubeObject(ctx.gl, AddV3(at, p), 0.42, color)
+			objs.push(o)
+			addLive(ctx, o)
+		}
+		return {
+			pos: at, hp, hpMax: hp, cells: dec.cells, objs,
+			weapons: weapons.map((w, k) => ({
+				fireKind: w.fireKind, dmg: w.dmg, rate: w.rate, cd: Math.random() * w.rate,
+				from: AddV3(at, AddV3(dec.weapons[k] || dec.cells[0] || V3(0, 0, 0), V3(0, 0.3, 0)))
+			}))
+		}
 	}
 
 	function spawnEnemy(ctx, arch) {
-		// Beyond the ship in the camera's forward arc (theta + PI is the
-		// horizontal look direction), so a spawned foe is on screen.
+		// beyond the ship in the camera's forward arc so it lands on screen
 		const ang = ctx.camera.theta + Math.PI + (Math.random() - 0.5) * 1.4
 		const dist = SHIP_ENEMY_DIST + Math.random() * 2
-		const base = V3(Math.cos(ang) * dist, 1.2 + Math.random() * 1.5, Math.sin(ang) * dist)
-		const core = CreateCubeObject(ctx.gl, base, 0.9, [0.9, 0.3, 0.3])
-		addLive(ctx, core)
-		const frigs = []
-		for (let f = 0; f < (arch.frigates || 0); f++) {
-			const fp = AddV3(base, V3((f - 0.5) * 1.7, 0, 1.5))
-			const fo = CreateCubeObject(ctx.gl, fp, 0.5, [1, 0.5, 0.4])
-			addLive(ctx, fo)
-			frigs.push({
-				hp: arch.frigHp, hpMax: arch.frigHp, obj: fo,
-				weapon: { fireKind: arch.frigKind, dmg: arch.frigDmg, rate: arch.frigRate, cd: Math.random() }
-			})
+		const at = V3(Math.cos(ang) * dist, 1.2 + Math.random() * 1.5, Math.sin(ang) * dist)
+		const e = makeEnemyShip(ctx, arch.schema, arch.hp, arch.weapons, [0.9, 0.3, 0.3], at)
+		e.frigates = []
+		if (arch.frig) {
+			for (let f = 0; f < arch.frig.count; f++) {
+				const fp = AddV3(at, V3((f - (arch.frig.count - 1) / 2) * 2, 0, 2.2))
+				e.frigates.push(makeEnemyShip(ctx, arch.frig.schema, arch.frig.hp, [arch.frig.weapon], [1, 0.5, 0.4], fp))
+			}
 		}
-		enemies.push({
-			name: arch.name,
-			core: { hp: arch.hp, hpMax: arch.hp, obj: core },
-			frigates: frigs,
-			weapon: { fireKind: arch.fireKind, dmg: arch.dmg, rate: arch.rate, cd: Math.random() }
-		})
+		enemies.push(e)
 		wasHostile = true
 		updateMapBtn()
 	}
 
-	// Flat list of live enemy elements as { part, obj } (part carries hp/hpMax).
+	// live enemy elements (ships + frigates), each a single hp pool
 	function liveParts() {
 		const out = []
 		for (const e of enemies) {
-			if (e.core.hp > 0) out.push({ part: e.core, obj: e.core.obj })
-			for (const fr of e.frigates) if (fr.hp > 0) out.push({ part: fr, obj: fr.obj })
+			if (e.hp > 0) out.push(e)
+			for (const fr of e.frigates) if (fr.hp > 0) out.push(fr)
 		}
 		return out
 	}
@@ -177,24 +216,29 @@ function CreateShipState(opts) {
 		let best = null
 		let bd = Infinity
 		for (const p of parts) {
-			const d = LenV3(SubV3(p.obj.position, from))
+			const d = LenV3(SubV3(p.pos, from))
 			if (d < bd) { bd = d; best = p }
 		}
 		return best
 	}
 
-	// toRef: { player: true } for enemy fire, or a liveParts() entry for player fire.
-	function spawnProjectile(ctx, from, toRef, kind, dmg, hostileToPlayer) {
+	// random cell of `cells` (offset list) + a random point inside its volume
+	function scatter(cells) {
+		const c = cells[Math.floor(Math.random() * cells.length)] || V3(0, 0, 0)
+		return AddV3(c, V3((Math.random() - 0.5) * SHIP_CELL, (Math.random() - 0.5) * SHIP_CELL, (Math.random() - 0.5) * SHIP_CELL))
+	}
+
+	// -------- projectiles / effects --------
+
+	function fireAt(ctx, from, aim, kind, dmg, hostile, apply) {
 		const start = V3(from[0], from[1], from[2])
 		const o = kind === 'plasma'
 			? CreateSphereObject(ctx.gl, start, 0.18, FIRE_COLORS[kind], 6, 8)
 			: CreateCubeObject(ctx.gl, start, kind === 'rocket' ? 0.22 : 0.14, FIRE_COLORS[kind])
 		addLive(ctx, o)
 		let popAt = 0
-		if (hostileToPlayer && kind === 'rocket' && Math.random() < PlayerInterceptChance()) {
-			popAt = 0.15 + Math.random() * 0.2
-		}
-		projectiles.push({ obj: o, pos: start, toRef, dmg, speed: SHIP_PROJ_SPEED[kind], popAt, life: 0, hostileToPlayer })
+		if (hostile && kind === 'rocket' && Math.random() < PlayerInterceptChance()) popAt = 0.15 + Math.random() * 0.2
+		projectiles.push({ obj: o, pos: start, aim, dmg, speed: SHIP_PROJ_SPEED[kind], popAt, life: 0, apply })
 	}
 
 	function spawnExplosion(ctx, at) {
@@ -224,17 +268,12 @@ function CreateShipState(opts) {
 				projectiles.splice(i, 1)
 				continue
 			}
-			const tgt = p.toRef.player
-				? V3(0, 0.3, 0)
-				: (p.toRef.part.hp > 0 ? p.toRef.obj.position : null)
-			if (!tgt) { delLive(ctx, p.obj); projectiles.splice(i, 1); continue }
-			const d = SubV3(tgt, p.pos)
+			const d = SubV3(p.aim, p.pos)
 			const dist = LenV3(d)
 			const step = p.speed * dt
 			if (dist <= step) {
-				spawnExplosion(ctx, tgt)
-				if (p.toRef.player) shipHp = Math.max(0, shipHp - p.dmg)
-				else p.toRef.part.hp = Math.max(0, p.toRef.part.hp - p.dmg)
+				spawnExplosion(ctx, p.aim)
+				if (!p.popAt) p.apply(p.dmg)
 				delLive(ctx, p.obj)
 				projectiles.splice(i, 1)
 				continue
@@ -252,21 +291,22 @@ function CreateShipState(opts) {
 				t.cd -= dt
 				if (t.cd <= 0) {
 					t.cd = t.rate
-					const tr = nearestPart(V3(0, 0.3, 0), parts)
-					if (tr) spawnProjectile(ctx, V3(0, 0.4, 0), tr, t.fireKind, t.dmg, false)
+					const part = nearestPart(t.from, parts)
+					if (part) fireAt(ctx, t.from, AddV3(part.pos, scatter(part.cells)), t.fireKind, t.dmg, false, dmg => { part.hp = Math.max(0, part.hp - dmg) })
 				}
 			}
 		}
 
 		for (const e of enemies) {
-			const shooters = [{ w: e.weapon, from: e.core.obj.position, alive: e.core.hp > 0 }]
-			for (const fr of e.frigates) shooters.push({ w: fr.weapon, from: fr.obj.position, alive: fr.hp > 0 })
-			for (const sh of shooters) {
-				if (!sh.alive || !sh.w.fireKind) continue
-				sh.w.cd -= dt
-				if (sh.w.cd <= 0) {
-					sh.w.cd = sh.w.rate
-					spawnProjectile(ctx, sh.from, { player: true }, sh.w.fireKind, sh.w.dmg, true)
+			for (const s of [e].concat(e.frigates)) {
+				if (s.hp <= 0) continue
+				for (const w of s.weapons) {
+					if (!w.fireKind) continue
+					w.cd -= dt
+					if (w.cd <= 0) {
+						w.cd = w.rate
+						fireAt(ctx, w.from, scatter(playerCells), w.fireKind, w.dmg, true, dmg => { shipHp = Math.max(0, shipHp - dmg) })
+					}
 				}
 			}
 		}
@@ -277,9 +317,10 @@ function CreateShipState(opts) {
 		for (let i = enemies.length - 1; i >= 0; i--) {
 			const e = enemies[i]
 			for (let f = e.frigates.length - 1; f >= 0; f--) {
-				if (e.frigates[f].hp <= 0) { delLive(ctx, e.frigates[f].obj); e.frigates.splice(f, 1) }
+				if (e.frigates[f].hp <= 0) { for (const o of e.frigates[f].objs) delLive(ctx, o); e.frigates.splice(f, 1) }
 			}
-			if (e.core.hp <= 0 && e.frigates.length === 0) { delLive(ctx, e.core.obj); enemies.splice(i, 1) }
+			if (e.hp <= 0 && e.objs.length) { for (const o of e.objs) delLive(ctx, o); e.objs = [] }
+			if (e.hp <= 0 && e.frigates.length === 0) enemies.splice(i, 1)
 		}
 
 		if (wasHostile && enemies.length === 0) {
@@ -296,14 +337,13 @@ function CreateShipState(opts) {
 	return {
 		OnEnter(ctx) {
 			ctxRef = ctx
-			mine = []
 			live = []
-			slotViz = []
-			pads = []
+			hullCubes = []
+			slotViz = {}
 			enemies = []
 			projectiles = []
 			effects = []
-			col1 = []
+			rows = []
 			col2 = []
 			selected = -1
 			wasHostile = false
@@ -311,26 +351,26 @@ function CreateShipState(opts) {
 			mapBtn = null
 
 			ctx.camera.setConstraints({
-				minPhi: 0.25, maxPhi: 1.35, minRadius: 4, maxRadius: 16, autoSpeed: 0,
-				panRect: { minX: -3, maxX: 3, minZ: -3, maxZ: 3 }
+				minPhi: 0.25, maxPhi: 1.35, minRadius: 4, maxRadius: 18, autoSpeed: 0,
+				panRect: { minX: -4, maxX: 4, minZ: -4, maxZ: 4 }
 			})
 			ctx.camera.position = V3(0, 0, 0)
 			ctx.camera.theta = Math.PI / 2
 			ctx.camera.phi = 0.8
-			ctx.camera.radius = 9
+			ctx.camera.radius = 10
 
-			buildShip(ctx)
-			for (const o of mine) ctx.objects.push(o)
-			for (let i = 0; i < shipSlots.length; i++) syncSlotViz(ctx, i)
+			rebuildHull(ctx)
+			rebuildViz(ctx)
 
 			turrets = PlayerTurrets()
 			hpMax = ShipHpMax()
-			if (!opts.enemies) { shipHp = hpMax } // heal on peaceful entry
+			if (!opts.enemies) shipHp = hpMax // heal on peaceful entry
 
 			topPanel = CreatePanel('Ship Bay', 'top')
-			CreateButton('Debug: Spawn Enemy', 'bottom', () => spawnEnemy(ctx, RandomEnemyArchetype()))
 			bars = { hp: CreateBar('barsright', '#ff5566'), tgt: CreateBar('barsright', '#ffaa33') }
 			bars.tgt.el.style.right = '6.7vmin'
+
+			CreateDebugMenu(ENEMY_ARCHETYPES.map(a => ({ label: 'Spawn ' + a.name, run: () => spawnEnemy(ctx, a) })))
 
 			refreshLists()
 			updateMapBtn()
@@ -339,7 +379,6 @@ function CreateShipState(opts) {
 		},
 
 		OnExit(ctx) {
-			RemoveObjects(ctx, mine)
 			RemoveObjects(ctx, live)
 		},
 
@@ -351,12 +390,26 @@ function CreateShipState(opts) {
 				if (hit && hit.onClick) hit.onClick()
 			}
 
+			// pending slot builds: apply finished ones, keep the countdown live
+			const done = TickBuilds(dt)
+			if (done.any) {
+				if (done.shipChanged) rebuildHull(ctx)
+				rebuildViz(ctx)
+				turrets = PlayerTurrets()
+				hpMax = ShipHpMax()
+				if (!wasHostile) shipHp = hpMax
+				refreshLists()
+			} else if (builds.length) {
+				buildRefreshT += dt
+				if (buildRefreshT > 0.2) { buildRefreshT = 0; refreshLists() }
+			}
+
 			updateCombat(ctx, dt)
 			if (dead) return
 
 			bars.hp.set(shipHp / hpMax * 100)
 			const parts = liveParts()
-			bars.tgt.set(parts.length ? parts[0].part.hp / parts[0].part.hpMax * 100 : 0)
+			bars.tgt.set(parts.length ? parts[0].hp / parts[0].hpMax * 100 : 0)
 			topPanel.textContent = enemies.length ? 'Hostiles: ' + enemies.length : 'Ship Bay'
 		}
 	}

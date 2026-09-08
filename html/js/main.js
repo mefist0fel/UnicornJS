@@ -15,6 +15,10 @@ InitPlanetRenderer(ctx.gl)
 InitUI()
 InitResHud()
 
+// Star-sky backdrop: built once, drawn every frame behind ctx.objects,
+// never owned by a state (see CreateStarfield in objects.js).
+const starfield = CreateStarfield(ctx.gl)
+
 // Switching state is just swapping currentState for another state instance;
 // this wrapper is what makes that swap also call OnExit/OnEnter. It does
 // *not* touch ctx.objects - states clean up their own objects if they want to
@@ -51,6 +55,7 @@ function Frame(now) {
 	camEyePos = ctx.camera.getEye() // read by the planet shader (rim light), see objects.js
 	gTime = now / 1000 // read by the planet shader (drift animation)
 	const viewProj = ctx.camera.getViewProj()
+	for (let i = 0; i < starfield.length; i++) starfield[i].render(viewProj)
 	for (let i = 0; i < ctx.objects.length; i++) ctx.objects[i].render(viewProj)
 
 	ctx.input.update()
