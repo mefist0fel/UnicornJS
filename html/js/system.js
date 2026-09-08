@@ -126,7 +126,7 @@ function GetSystem(ctx, starIndex) {
 // shows the exact same surface at map radius ~0.2 and deco radius ~250 - the
 // ramp/offset/planeScale are copied verbatim and size only ever comes from the
 // model matrix. Don't bake radius into a mesh or this breaks.
-const DECO_ORBIT = 140     // orbit distances: map ~2..9 -> ~280..1300
+const DECO_ORBIT = 400     // orbit distances: map ~2..9 -> ~800..3600 (bodies well apart)
 const DECO_RADIUS = 1000   // body radii: map ~0.2 -> ~200
 const DECO_STAR_RMUL = 90  // the star stays a comparatively small distant disc
 const DECO_PLATFORM_GAP = 45 // ship-to-planet-limb clearance at the vicinity point

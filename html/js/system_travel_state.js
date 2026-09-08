@@ -14,9 +14,9 @@ function CreateSystemTravelState(onDone, fromBody, toBody) {
 	const CRUISE = 1.9
 	const SWING_BACK = 0.35
 	const TOTAL = SWING_IN + CRUISE + SWING_BACK
-	const AHEAD = 500   // spark field length ahead along -z (true scale)
-	const BEHIND = 150
-	const SPARK_SPEED = 420
+	const AHEAD = 800   // spark field length ahead along -z (true scale)
+	const BEHIND = 200
+	const SPARK_SPEED = 700
 	let t = 0
 	let sparks = []
 	let shipObjs = []

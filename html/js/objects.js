@@ -113,19 +113,24 @@ function CreateLineObject(gl, a, b, color, width = 0.09) {
 	return CreateMeshObject(gl, V3(0, 0, 0), { positions, normals, indices }, 1, color)
 }
 
-// A spherical shell of small white cubes as a static star-sky backdrop.
-// Points are sampled in a cube and kept only if MIN < |p| < R, so the result
-// is roughly uniform on the sphere with an empty pocket around the origin (no
-// stars sitting on top of the scene). Sizes skew small (random*random).
-// main.js renders these every frame before ctx.objects, independent of state.
+// A spherical shell of white cubes as the star-sky backdrop. Points are
+// sampled in a cube and kept only if MIN < |p| < R, so the result is roughly
+// uniform on the sphere. The shell sits far outside everything (R ~7500, past
+// the outer deco orbits) and its size is scaled to match, so apparent star
+// size is unchanged - and main.js re-centres it on the camera eye every frame,
+// making it an infinitely-distant skybox (zero parallax) rather than fixed
+// geometry the true-scale system could fly past. `basePos` is the shell-space
+// offset main.js adds the eye to. Rendered before ctx.objects, state-independent.
 function CreateStarfield(gl, count = 180) {
 	const out = []
-	const R = 150
+	const R = 7500
 	while (out.length < count) {
 		const p = V3((Mr() * 2 - 1) * R, (Mr() * 2 - 1) * R, (Mr() * 2 - 1) * R)
 		const d = LenV3(p)
-		if (d < 70 || d > R) continue
-		out.push(CreateCubeObject(gl, p, 0.2 + Mr() * Mr() * 0.9, [1, 1, 1]))
+		if (d < 5500 || d > R) continue
+		const o = CreateCubeObject(gl, p, 10 + Mr() * Mr() * 45, [1, 1, 1])
+		o.basePos = p
+		out.push(o)
 	}
 	return out
 }

@@ -55,7 +55,12 @@ function Frame(now) {
 	camEyePos = ctx.camera.getEye() // read by the planet shader (rim light), see objects.js
 	gTime = now / 1000 // read by the planet shader (drift animation)
 	const viewProj = ctx.camera.getViewProj()
-	for (let i = 0; i < starfield.length; i++) starfield[i].render(viewProj)
+	// starfield is a skybox: re-centre the shell on the eye so it never shifts
+	// relative to the view, however far the true-scale system travels.
+	for (let i = 0; i < starfield.length; i++) {
+		starfield[i].position = AddV3(starfield[i].basePos, camEyePos)
+		starfield[i].render(viewProj)
+	}
 	for (let i = 0; i < ctx.objects.length; i++) ctx.objects[i].render(viewProj)
 
 	ctx.input.update()

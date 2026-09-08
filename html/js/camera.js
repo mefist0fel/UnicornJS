@@ -25,11 +25,12 @@ function CreateCamera() {
 		fov: 50 * PI / 180,
 		aspect: 1,
 		// far has to clear the true-scale system drawn in ship_state /
-		// system_travel (a ~250-unit planet a few hundred units off, the far
-		// bodies ~2000 out). near is kept well above 0 for depth precision at
-		// that range - every scene keeps its close geometry past ~0.3 units.
+		// system_travel (a ~250-unit planet a few hundred units off, outer
+		// bodies ~3600 out, and the camera-locked starfield shell at ~7500).
+		// near is kept well above 0 for depth precision at that range - every
+		// scene keeps its close geometry past ~0.3 units.
 		near: 0.3,
-		far: 6000,
+		far: 10000,
 
 		// Called by state OnEnter() when entering a scene - swaps the limits,
 		// does not teleport the camera (out-of-range phi/radius/position just
