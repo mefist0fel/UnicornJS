@@ -8,6 +8,8 @@ function CreateMenuState() {
 
 	return {
 		OnEnter(ctx) {
+			MusicStart() // silent until the Play click resumes the audio context
+
 			ctx.camera.setConstraints({ minPhi: 0.6, maxPhi: 0.6, minRadius: 10, maxRadius: 10, autoSpeed: 0.15 })
 			ctx.camera.position = V3(0, 0, 0)
 			ctx.camera.theta = 0

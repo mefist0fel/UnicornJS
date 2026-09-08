@@ -24,7 +24,7 @@ function CreateButton(text, anchor, onClick) {
 	const el = document.createElement('div')
 	el.className = 'button ' + anchor
 	el.textContent = text
-	el.onclick = onClick
+	el.onclick = e => { Sfx.click(); if (onClick) onClick(e) }
 	uiRoot.appendChild(el)
 	return el
 }
@@ -45,15 +45,7 @@ function CreateHoldButton(text, anchor, onDown, onUp) {
 	return el
 }
 
-// Third widget, added for battle's HP/energy meters - a vertical fill bar
-// anchored to a screen edge rather than a text/click widget. `.set(pct)`
-// takes 0..100. See docs/ui.md.
-function CreateBar(anchor, color) {
-	const el = document.createElement('div')
-	el.className = 'bar ' + anchor
-	const fill = document.createElement('i')
-	fill.style.background = color
-	el.appendChild(fill)
-	uiRoot.appendChild(el)
-	return { el, set(pct) { fill.style.height = Mmax(0, Mmin(100, pct)) + '%' } }
-}
+// Health is shown with no dedicated widget: a text-less .slotlife block whose
+// inline `background: linear-gradient(90deg, green X%, dark X%)` is the fill -
+// same trick as the pending-build button. ship_state.js drives one for the
+// ship, one per built support corvette, and a right-column list for hostiles.

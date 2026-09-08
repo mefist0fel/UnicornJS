@@ -36,6 +36,7 @@ function CreateSystemTravelState(onDone, fromBody, toBody) {
 	return {
 		OnEnter(ctx) {
 			t = 0
+			Sfx.jump()
 
 			ctx.camera.setConstraints({ minPhi: 0.1, maxPhi: 1.5, minRadius: 24, maxRadius: 24, autoSpeed: 0 })
 			ctx.camera.position = V3(0, 0, 0)

@@ -34,7 +34,8 @@ function CreateShipState(opts) {
 	let hyperBtn = null
 	let atStar = false
 	let sysBackdrop = [] // the current system's planets, shown as a static backdrop
-	let bars = null
+	let shipLifeEl = null   // green HP strip at the top of the left list
+	let enemyBars = []      // [{ el, part }] - right-side list, one HP strip per live hostile element
 	let topPanel = null
 	let hpMax = 0
 	let wasHostile = false
@@ -106,8 +107,42 @@ function CreateShipState(opts) {
 	// TickBuilds() in OnUpdate does the actual resync when it finishes. Here we
 	// only close the target list and redraw so the pending row shows its timer.
 	function afterBuild() {
+		Sfx.build()
 		selected = -1
 		refreshLists()
+	}
+
+	// left/right lists are a stack of two block kinds sharing one 16vmin column:
+	//   - a .slotbtn (a real button: slot / conversion target)
+	//   - a .slotlife strip (no text, green fill = an hp fraction) for the ship,
+	//     for a built support corvette, and for every hostile element on the right
+	// section dividers (the old WEAPONS/MODULES text headers) are gone - just a gap.
+	function lifeGrad(frac) {
+		const p = Mmax(0, Mmin(100, Math.round(frac * 100)))
+		return 'linear-gradient(90deg,#3ad07a ' + p + '%,#0006 ' + p + '%)'
+	}
+
+	// a no-text health strip in `anchor`'s column at `top` vmin; returns the el
+	function lifeStrip(anchor, top, frac, into) {
+		const el = CreatePanel('', anchor)
+		el.className = anchor + ' slotlife'
+		el.style.top = top + 'vmin'
+		el.style.background = lifeGrad(frac)
+		into.push(el)
+		return el
+	}
+
+	function slotButton(top, label, onClick, isSel, pend) {
+		const b = CreateButton(pend ? MODULES[pend.id].name + '  ▸' + pend.secLeft + 's' : label, 'leftcol', onClick)
+		b.className += ' slotbtn'
+		b.style.top = top + 'vmin'
+		if (pend) {
+			const p = Math.round(pend.frac * 100)
+			b.style.background = 'linear-gradient(90deg,#3a7a4aee ' + p + '%,#ffffff22 ' + p + '%)'
+		} else if (isSel) {
+			b.style.background = '#ffffff66'
+		}
+		rows.push(b)
 	}
 
 	function refreshLists() {
@@ -117,30 +152,25 @@ function CreateShipState(opts) {
 		col2 = []
 
 		let y = 7 // leave room for the debug "D" button up top
-		for (const r of ShipModuleList()) {
-			if (r.kind === 'hdr') {
-				const el = CreatePanel(r.label, 'leftcol')
-				el.className = 'leftcol slothdr'
-				el.style.top = y + 'vmin'
-				rows.push(el)
-				y += 2.6
-				continue
+
+		// ship hp, then the ship frame slot
+		shipLifeEl = lifeStrip('leftcol', y, hpMax ? shipHp / hpMax : 1, rows)
+		y += 2
+		slotButton(y, 'Ship: ' + MODULES[currentShipId].name, selectShip, selected === -2, PendingBuild(-1))
+		y += 3.2
+
+		for (const type of [SLOT_WEAPON, SLOT_DEFENSE, SLOT_AUX]) {
+			y += 1.4 // gap where the section header used to be
+			for (const i of ActiveSlots(type)) {
+				const s = shipSlots[i]
+				// a built support corvette is a mini-ship: show its hp above its button
+				if (type === SLOT_AUX && s.moduleId !== s.base) {
+					lifeStrip('leftcol', y, 1, rows) // corvettes don't take damage yet - full for now
+					y += 2
+				}
+				slotButton(y, MODULES[s.moduleId].name, () => selectSlot(i), selected === i, PendingBuild(i))
+				y += 3.2
 			}
-			const slotId = r.kind === 'ship' ? -1 : r.index
-			const pend = PendingBuild(slotId)
-			const b = CreateButton(
-				pend ? MODULES[pend.id].name + '  ▸' + pend.secLeft + 's' : r.label,
-				'leftcol', r.kind === 'ship' ? selectShip : () => selectSlot(r.index))
-			b.className += ' slotbtn'
-			b.style.top = y + 'vmin'
-			if (pend) {
-				const p = Math.round(pend.frac * 100)
-				b.style.background = 'linear-gradient(90deg,#3a7a4aee ' + p + '%,#ffffff22 ' + p + '%)'
-			} else if (r.kind === 'ship' ? selected === -2 : selected === r.index) {
-				b.style.background = '#ffffff66'
-			}
-			rows.push(b)
-			y += 3.2
 		}
 
 		const tg = selected === -2 ? ShipTargets() : selected >= 0 ? SlotTargets(selected) : null
@@ -153,6 +183,17 @@ function CreateShipState(opts) {
 			b.className += ' slotbtn'
 			b.style.top = (7 + k * 3.2) + 'vmin'
 			col2.push(b)
+		}
+	}
+
+	// right-side list: one green strip per live hostile element (ship + frigates),
+	// rebuilt when that set changes; fills refreshed every frame in OnUpdate.
+	function refreshEnemyBars() {
+		for (const eb of enemyBars) eb.el.remove()
+		enemyBars = []
+		const parts = liveParts()
+		for (let k = 0; k < parts.length; k++) {
+			enemyBars.push({ el: lifeStrip('rightcol', 7 + k * 2, parts[k].hp / parts[k].hpMax, []), part: parts[k] })
 		}
 	}
 
@@ -243,6 +284,7 @@ function CreateShipState(opts) {
 	}
 
 	function spawnExplosion(ctx, at) {
+		Sfx.explosion()
 		const o = CreateSphereObject(ctx.gl, V3(at[0], at[1], at[2]), 1, [1, 1, 1], 8, 10)
 		o.scale = 0.01
 		effects.push({ obj: o, t: 0 })
@@ -293,7 +335,10 @@ function CreateShipState(opts) {
 				if (t.cd <= 0) {
 					t.cd = t.rate
 					const part = nearestPart(t.from, parts)
-					if (part) fireAt(ctx, t.from, AddV3(part.pos, scatter(part.cells)), t.fireKind, t.dmg, false, dmg => { part.hp = Mmax(0, part.hp - dmg) })
+					if (part) {
+						SfxShoot(t.fireKind)
+						fireAt(ctx, t.from, AddV3(part.pos, scatter(part.cells)), t.fireKind, t.dmg, false, dmg => { part.hp = Mmax(0, part.hp - dmg) })
+					}
 				}
 			}
 		}
@@ -306,7 +351,7 @@ function CreateShipState(opts) {
 					w.cd -= dt
 					if (w.cd <= 0) {
 						w.cd = w.rate
-						fireAt(ctx, w.from, scatter(playerCells), w.fireKind, w.dmg, true, dmg => { shipHp = Mmax(0, shipHp - dmg) })
+						fireAt(ctx, w.from, scatter(playerCells), w.fireKind, w.dmg, true, dmg => { shipHp = Mmax(0, shipHp - dmg); Sfx.hit() })
 					}
 				}
 			}
@@ -332,12 +377,13 @@ function CreateShipState(opts) {
 			updateNavBtns()
 		}
 
-		if (shipHp <= 0) { dead = true; SetState(CreateMenuState()) }
+		if (shipHp <= 0) { dead = true; Sfx.death(); SetState(CreateMenuState()) }
 	}
 
 	return {
 		OnEnter(ctx) {
 			ctxRef = ctx
+			MusicStart()
 			live = []
 			hullCubes = []
 			slotViz = {}
@@ -346,6 +392,8 @@ function CreateShipState(opts) {
 			effects = []
 			rows = []
 			col2 = []
+			enemyBars = []
+			shipLifeEl = null
 			selected = -1
 			wasHostile = false
 			dead = false
@@ -383,8 +431,6 @@ function CreateShipState(opts) {
 			if (!opts.enemies) shipHp = hpMax // heal on peaceful entry
 
 			topPanel = CreatePanel(atStar ? 'Star Orbit' : 'Ship Bay', 'top')
-			bars = { hp: CreateBar('barsright', '#ff5566'), tgt: CreateBar('barsright', '#ffaa33') }
-			bars.tgt.el.style.right = '6.7vmin'
 
 			CreateDebugMenu(ENEMY_ARCHETYPES.map(a => ({ label: 'Spawn ' + a.name, run: () => spawnEnemy(ctx, a) })).concat([
 				{
@@ -432,9 +478,14 @@ function CreateShipState(opts) {
 			updateCombat(ctx, dt)
 			if (dead) return
 
-			bars.hp.set(shipHp / hpMax * 100)
+			// left list: ship hp strip
+			if (shipLifeEl) shipLifeEl.style.background = lifeGrad(hpMax ? shipHp / hpMax : 1)
+
+			// right list: rebuild only when the hostile set changes, then refill
 			const parts = liveParts()
-			bars.tgt.set(parts.length ? parts[0].hp / parts[0].hpMax * 100 : 0)
+			if (parts.length !== enemyBars.length || enemyBars.some((eb, i) => eb.part !== parts[i])) refreshEnemyBars()
+			for (const eb of enemyBars) eb.el.style.background = lifeGrad(eb.part.hp / eb.part.hpMax)
+
 			topPanel.textContent = enemies.length ? 'Hostiles: ' + enemies.length : atStar ? 'Star Orbit' : 'Ship Bay'
 		}
 	}

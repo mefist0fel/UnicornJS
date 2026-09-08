@@ -40,6 +40,7 @@ function CreateHyperjumpState(onDone) {
 			t = 0
 			mine = []
 			rows = []
+			Sfx.hyperjump()
 
 			// chase cam right behind the ship, on the tunnel axis, looking -z
 			ctx.camera.setConstraints({ minPhi: 0.05, maxPhi: PI - 0.05, minRadius: 5, maxRadius: 5, autoSpeed: 0 })

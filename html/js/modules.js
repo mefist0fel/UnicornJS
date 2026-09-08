@@ -174,20 +174,6 @@ function ActiveSlots(type) {
 	return out.slice(0, SlotCap(type))
 }
 
-// Left-panel rows: a 'ship' row, then for each category a 'hdr' row (with a
-// used/cap count) followed by its active 'slot' rows.
-function ShipModuleList() {
-	const rows = [{ kind: 'ship', label: 'Ship: ' + MODULES[currentShipId].name }]
-	const secs = [[SLOT_WEAPON, 'WEAPONS'], [SLOT_DEFENSE, 'MODULES'], [SLOT_AUX, 'SUPPORT']]
-	for (const sec of secs) {
-		const act = ActiveSlots(sec[0])
-		const used = act.filter(i => shipSlots[i].moduleId !== shipSlots[i].base).length
-		rows.push({ kind: 'hdr', label: sec[1] + '  ' + used + '/' + act.length })
-		for (const i of act) rows.push({ kind: 'slot', index: i, label: MODULES[shipSlots[i].moduleId].name })
-	}
-	return rows
-}
-
 function SlotTargets(i) {
 	return MODULES[shipSlots[i].moduleId].to.map(id => ({ id, name: MODULES[id].name, cost: MODULES[id].cost }))
 }

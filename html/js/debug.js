@@ -6,7 +6,8 @@
 
 const DEBUG_GLOBAL = [
 	{ label: '+50 Metal', run: () => AddRes(RES_METAL, 50) },
-	{ label: '+10 Fuel', run: () => AddRes(RES_FUEL, 10) }
+	{ label: '+10 Fuel', run: () => AddRes(RES_FUEL, 10) },
+	{ label: 'Mute/unmute', run: () => ToggleMute() }
 ]
 
 function CreateDebugMenu(extra) {
