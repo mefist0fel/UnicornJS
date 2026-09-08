@@ -3,9 +3,11 @@
 //  * a SHIP SCHEMA string (see docs/shipformat.md) - "<width><grid>|<support
 //    coords>" - drives both the player ship and enemy ships. Grid chars:
 //      .  empty     #  hull cube     W  weapon slot     M  module slot
-//    Cell world pos is centred: ((col-(w-1)/2), 0, (row-(h-1)/2)) * SHIP_CELL.
+//    Axes (fixed project-wide): x = left/right, y = up/down, z = fwd/back,
+//    motion plane = xz. In a schema, COL -> x, ROW -> z, and ROW 0 is the NOSE
+//    (-z = forward). Cell world pos: ((col-(w-1)/2), 0, (row-(h-1)/2)) * SHIP_CELL.
 //    After '|', pairs of digits are support-ship slots, each `digit-4` cells
-//    from centre (x then z).
+//    from centre (x then z) - e.g. "0484" = one slot left, one right.
 //
 //  * a small conversion GRAPH of modules (MODULES): every slot holds one
 //    module id; it can be turned into any of its `to` neighbours for that
@@ -55,13 +57,16 @@ const MODULES = {
 		stats: { [STAT_HP]: 500, [STAT_WEAPONS]: 1, [STAT_MODULES]: 2, [STAT_SUPPORTS]: 2 }
 	},
 	s2: {
+		// col->x, row->z, row 0 = nose (-z, forward). Symmetric arrow: 3 spine
+		// guns, 4 wing-root modules, 2 support slots on the sides.
 		name: 'Wing Frame', slot: SLOT_SHIP, cost: 30, to: ['s1', 's3'], buildTime: 5,
-		schema: '5.#...M##M..#WWWM###..#...|0484',
+		schema: '5..W..M###M##W##M###M.#W#.|0484',
 		stats: { [STAT_HP]: 900, [STAT_WEAPONS]: 3, [STAT_MODULES]: 3, [STAT_SUPPORTS]: 2 }
 	},
 	s3: {
+		// 5 guns (2 nose + spine + 2 tips), 4 wing modules, 3 support (2 sides + 1 rear).
 		name: 'Battle Frame', slot: SLOT_SHIP, cost: 60, to: ['s2'], buildTime: 5,
-		schema: '5MM#...#W#.W#W#W.#W#.MM#..|048448',
+		schema: '5.W.W.M#W#MW###WM###M.###.|048448',
 		stats: { [STAT_HP]: 1400, [STAT_WEAPONS]: 5, [STAT_MODULES]: 4, [STAT_SUPPORTS]: 3 }
 	},
 
@@ -251,11 +256,11 @@ function PlayerTurrets() {
 	const t = []
 	for (const i of ActiveSlots(SLOT_WEAPON)) {
 		const m = MODULES[shipSlots[i].moduleId]
-		if (m.fireKind) t.push({ fireKind: m.fireKind, dmg: m.dmg, rate: m.rate, cd: Math.random() * m.rate, from: AddV3(shipSlots[i].pos, V3(0, 0.45, 0)) })
+		if (m.fireKind) t.push({ fireKind: m.fireKind, dmg: m.dmg, rate: m.rate, cd: Mr() * m.rate, from: AddV3(shipSlots[i].pos, V3(0, 0.45, 0)) })
 	}
 	for (const i of ActiveSlots(SLOT_AUX)) {
 		const m = MODULES[shipSlots[i].moduleId]
-		if (m.fireKind) t.push({ fireKind: m.fireKind, dmg: m.dmg, rate: m.rate, cd: Math.random() * m.rate, from: AddV3(shipSlots[i].pos, V3(0, 0.42, 0)) })
+		if (m.fireKind) t.push({ fireKind: m.fireKind, dmg: m.dmg, rate: m.rate, cd: Mr() * m.rate, from: AddV3(shipSlots[i].pos, V3(0, 0.42, 0)) })
 	}
 	return t
 }
@@ -319,12 +324,12 @@ const ENEMY_ARCHETYPES = [
 ]
 
 function RandomEnemyArchetype() {
-	return ENEMY_ARCHETYPES[Math.floor(Math.random() * ENEMY_ARCHETYPES.length)]
+	return ENEMY_ARCHETYPES[Mfl(Mr() * ENEMY_ARCHETYPES.length)]
 }
 
 function RollPlanetEnemies() {
 	const out = []
-	const n = 1 + Math.floor(Math.random() * 3)
+	const n = 1 + Mfl(Mr() * 3)
 	for (let i = 0; i < n; i++) out.push(RandomEnemyArchetype())
 	return out
 }

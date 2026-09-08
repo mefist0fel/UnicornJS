@@ -72,7 +72,7 @@ function CreateGalaxyState() {
 	return {
 		OnEnter(ctx) {
 			ctx.camera.setConstraints({
-				minPhi: 0.2, maxPhi: Math.PI / 2 - 0.05, minRadius: 12, maxRadius: 40, autoSpeed: 0,
+				minPhi: 0.2, maxPhi: PI / 2 - 0.05, minRadius: 12, maxRadius: 40, autoSpeed: 0,
 				panRect: { minX: -14, maxX: 14, minZ: -14, maxZ: 14 }
 			})
 			ctx.camera.position = V3(0, 0, 0)

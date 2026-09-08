@@ -18,6 +18,7 @@
 - [docs/shipformat.md](../docs/shipformat.md) — формат корабля (корпус + слоты) в строке
 - [docs/texture.md](../docs/texture.md) — процедурные текстуры: value-шум и градиенты-рампы для шейдера планет
 - [docs/build.md](../docs/build.md) — сборка/минификация/zip-бюджет
+- [docs/optimization.md](../docs/optimization.md) — репорт по сокращению размера (где байты, бэклог срезов)
 
 ## Жёсткие правила
 

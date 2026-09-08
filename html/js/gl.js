@@ -1,6 +1,20 @@
 // WebGL bootstrap, vec3/mat4 math, generic mesh upload.
 // Mesh generation lives in geometry.js. See docs/architecture.md.
 
+// Math aliases - these tokens repeat hundreds of times; closure mangles the
+// short globals to 1 char, so `Mr()` is ~9 bytes cheaper per call than
+// `Math.random()` before gzip. (Math.random/sin/cos/... don't need `this`.)
+const Mr = Math.random
+const Ms = Math.sin
+const Mc = Math.cos
+const Ma = Math.abs
+const Mfl = Math.floor
+const Mmin = Math.min
+const Mmax = Math.max
+const Msqrt = Math.sqrt
+const Matan2 = Math.atan2
+const PI = Math.PI
+
 function InitGL(canvas) {
 	const gl = canvas.getContext('webgl', { antialias: true })
 	gl.enable(gl.DEPTH_TEST)
@@ -55,14 +69,14 @@ function CrossV3(a, b) {
 	]
 }
 function DotV3(a, b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2] }
-function LenV3(a) { return Math.sqrt(DotV3(a, a)) }
+function LenV3(a) { return Msqrt(DotV3(a, a)) }
 
 // Interpolate angle a -> b along the shortest arc (used for the travel-state
 // camera swing, where theta can wrap past +-PI).
 function LerpAngle(a, b, t) {
-	let d = (b - a) % (Math.PI * 2)
-	if (d > Math.PI) d -= Math.PI * 2
-	if (d < -Math.PI) d += Math.PI * 2
+	let d = (b - a) % (PI * 2)
+	if (d > PI) d -= PI * 2
+	if (d < -PI) d += PI * 2
 	return a + d * t
 }
 function NormV3(a) {

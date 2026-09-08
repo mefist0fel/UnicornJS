@@ -46,24 +46,24 @@ function CreateSystemState() {
 
 	function TryJump(ctx) {
 		if (!selectedTarget) return
-		const from = shipTarget
+		const from = sys.parkedPlanet // where we're leaving from (planet / PARK_STAR / null)
 		if (selectedTarget === PARK_STAR) {
 			sys.parkedPlanet = PARK_STAR
-			SetState(CreateSystemTravelState(() => CreateShipState({ atStar: true }), from, V3(0, 0, 0)))
+			SetState(CreateSystemTravelState(() => CreateShipState({ atStar: true }), from, PARK_STAR))
 		} else {
 			const planet = selectedTarget
 			sys.parkedPlanet = planet
 			SetState(CreateSystemTravelState(() => CreateShipState({
 				planet,
 				enemies: planetNeedsEventMarker(planet) ? planet.enemyArchetypes : null
-			}), from, planet.object.position))
+			}), from, planet))
 		}
 	}
 
 	return {
 		OnEnter(ctx) {
 			ctx.camera.setConstraints({
-				minPhi: 0.15, maxPhi: Math.PI / 2 - 0.05, minRadius: 4, maxRadius: 22, autoSpeed: 0,
+				minPhi: 0.15, maxPhi: PI / 2 - 0.05, minRadius: 4, maxRadius: 22, autoSpeed: 0,
 				panRect: { minX: -8, maxX: 8, minZ: -8, maxZ: 8 }
 			})
 			ctx.camera.position = V3(0, 0, 0)
@@ -114,7 +114,7 @@ function CreateSystemState() {
 			selected = false
 			selectedTarget = null
 			pickMarker = null
-			shipAngle = Math.random() * Math.PI * 2
+			shipAngle = Mr() * PI * 2
 			markerAngle = 0
 			CreatePanel('System - pick a planet or the star, then Jump', 'top')
 			CreateButton('Return to ship', 'bottomleft', () => SetState(CreateShipState()))
@@ -128,7 +128,7 @@ function CreateSystemState() {
 			ApplyCameraInput(ctx, dt)
 
 			shipAngle += dt * SYSTEM_SHIP_SPEED
-			ship.position = V3(shipTarget[0] + Math.cos(shipAngle) * shipOrbitRadius, 0, shipTarget[2] + Math.sin(shipAngle) * shipOrbitRadius)
+			ship.position = V3(shipTarget[0] + Mc(shipAngle) * shipOrbitRadius, 0, shipTarget[2] + Ms(shipAngle) * shipOrbitRadius)
 
 			for (let i = 0; i < sys.planets.length; i++) {
 				const planet = sys.planets[i]
@@ -136,9 +136,9 @@ function CreateSystemState() {
 					const moon = planet.moons[m]
 					moon.angle += moon.speed * dt
 					moon.object.position = V3(
-						planet.object.position[0] + Math.cos(moon.angle) * moon.dist,
+						planet.object.position[0] + Mc(moon.angle) * moon.dist,
 						0,
-						planet.object.position[2] + Math.sin(moon.angle) * moon.dist)
+						planet.object.position[2] + Ms(moon.angle) * moon.dist)
 				}
 			}
 

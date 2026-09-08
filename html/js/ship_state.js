@@ -33,6 +33,7 @@ function CreateShipState(opts) {
 	let mapBtn = null
 	let hyperBtn = null
 	let atStar = false
+	let sysBackdrop = [] // the current system's planets, shown as a static backdrop
 	let bars = null
 	let topPanel = null
 	let hpMax = 0
@@ -184,7 +185,7 @@ function CreateShipState(opts) {
 		return {
 			pos: at, hp, hpMax: hp, cells: dec.cells, objs,
 			weapons: weapons.map((w, k) => ({
-				fireKind: w.fireKind, dmg: w.dmg, rate: w.rate, cd: Math.random() * w.rate,
+				fireKind: w.fireKind, dmg: w.dmg, rate: w.rate, cd: Mr() * w.rate,
 				from: AddV3(at, AddV3(dec.weapons[k] || dec.cells[0] || V3(0, 0, 0), V3(0, 0.3, 0)))
 			}))
 		}
@@ -192,9 +193,9 @@ function CreateShipState(opts) {
 
 	function spawnEnemy(ctx, arch) {
 		// beyond the ship in the camera's forward arc so it lands on screen
-		const ang = ctx.camera.theta + Math.PI + (Math.random() - 0.5) * 1.4
-		const dist = SHIP_ENEMY_DIST + Math.random() * 2
-		const at = V3(Math.cos(ang) * dist, 1.2 + Math.random() * 1.5, Math.sin(ang) * dist)
+		const ang = ctx.camera.theta + PI + (Mr() - 0.5) * 1.4
+		const dist = SHIP_ENEMY_DIST + Mr() * 2
+		const at = V3(Mc(ang) * dist, 1.2 + Mr() * 1.5, Ms(ang) * dist)
 		const e = makeEnemyShip(ctx, arch.schema, arch.hp, arch.weapons, [0.9, 0.3, 0.3], at)
 		e.frigates = []
 		if (arch.frig) {
@@ -230,8 +231,8 @@ function CreateShipState(opts) {
 
 	// random cell of `cells` (offset list) + a random point inside its volume
 	function scatter(cells) {
-		const c = cells[Math.floor(Math.random() * cells.length)] || V3(0, 0, 0)
-		return AddV3(c, V3((Math.random() - 0.5) * SHIP_CELL, (Math.random() - 0.5) * SHIP_CELL, (Math.random() - 0.5) * SHIP_CELL))
+		const c = cells[Mfl(Mr() * cells.length)] || V3(0, 0, 0)
+		return AddV3(c, V3((Mr() - 0.5) * SHIP_CELL, (Mr() - 0.5) * SHIP_CELL, (Mr() - 0.5) * SHIP_CELL))
 	}
 
 	// -------- projectiles / effects --------
@@ -243,7 +244,7 @@ function CreateShipState(opts) {
 			: CreateCubeObject(ctx.gl, start, kind === 'rocket' ? 0.22 : 0.14, FIRE_COLORS[kind])
 		addLive(ctx, o)
 		let popAt = 0
-		if (hostile && kind === 'rocket' && Math.random() < PlayerInterceptChance()) popAt = 0.15 + Math.random() * 0.2
+		if (hostile && kind === 'rocket' && Mr() < PlayerInterceptChance()) popAt = 0.15 + Mr() * 0.2
 		projectiles.push({ obj: o, pos: start, aim, dmg, speed: SHIP_PROJ_SPEED[kind], popAt, life: 0, apply })
 	}
 
@@ -260,7 +261,7 @@ function CreateShipState(opts) {
 			e.t += dt
 			const k = e.t / SHIP_EXPL_DUR
 			if (k >= 1) { delLive(ctx, e.obj); effects.splice(i, 1) }
-			else e.obj.scale = Math.sin(k * Math.PI) * 0.9
+			else e.obj.scale = Ms(k * PI) * 0.9
 		}
 	}
 
@@ -298,7 +299,7 @@ function CreateShipState(opts) {
 				if (t.cd <= 0) {
 					t.cd = t.rate
 					const part = nearestPart(t.from, parts)
-					if (part) fireAt(ctx, t.from, AddV3(part.pos, scatter(part.cells)), t.fireKind, t.dmg, false, dmg => { part.hp = Math.max(0, part.hp - dmg) })
+					if (part) fireAt(ctx, t.from, AddV3(part.pos, scatter(part.cells)), t.fireKind, t.dmg, false, dmg => { part.hp = Mmax(0, part.hp - dmg) })
 				}
 			}
 		}
@@ -311,7 +312,7 @@ function CreateShipState(opts) {
 					w.cd -= dt
 					if (w.cd <= 0) {
 						w.cd = w.rate
-						fireAt(ctx, w.from, scatter(playerCells), w.fireKind, w.dmg, true, dmg => { shipHp = Math.max(0, shipHp - dmg) })
+						fireAt(ctx, w.from, scatter(playerCells), w.fireKind, w.dmg, true, dmg => { shipHp = Mmax(0, shipHp - dmg) })
 					}
 				}
 			}
@@ -356,14 +357,23 @@ function CreateShipState(opts) {
 			dead = false
 			mapBtn = null
 			hyperBtn = null
-			atStar = opts.atStar || GetSystem(ctx, currentStarIndex).parkedPlanet === PARK_STAR
+
+			// the ship always hangs somewhere in a system - draw that system at
+			// decoration scale (system.js), positioned so the parked body looms
+			// nearby. Static (no orbit animation), non-interactive.
+			const sys = GetSystem(ctx, currentStarIndex)
+			atStar = opts.atStar || sys.parkedPlanet === PARK_STAR
+			DecoSystem(ctx, sys)
+			PlaceDeco(sys, opts.planet || (atStar ? PARK_STAR : null))
+			sysBackdrop = sys.deco.parts.map(p => p.obj)
+			for (const o of sysBackdrop) ctx.objects.push(o)
 
 			ctx.camera.setConstraints({
 				minPhi: 0.25, maxPhi: 1.35, minRadius: 4, maxRadius: 18, autoSpeed: 0,
 				panRect: { minX: -4, maxX: 4, minZ: -4, maxZ: 4 }
 			})
 			ctx.camera.position = V3(0, 0, 0)
-			ctx.camera.theta = Math.PI / 2
+			ctx.camera.theta = PI / 2
 			ctx.camera.phi = 0.8
 			ctx.camera.radius = 10
 
@@ -378,7 +388,15 @@ function CreateShipState(opts) {
 			bars = { hp: CreateBar('barsright', '#ff5566'), tgt: CreateBar('barsright', '#ffaa33') }
 			bars.tgt.el.style.right = '6.7vmin'
 
-			CreateDebugMenu(ENEMY_ARCHETYPES.map(a => ({ label: 'Spawn ' + a.name, run: () => spawnEnemy(ctx, a) })))
+			CreateDebugMenu(ENEMY_ARCHETYPES.map(a => ({ label: 'Spawn ' + a.name, run: () => spawnEnemy(ctx, a) })).concat([
+				{
+					label: 'Preview: local jump', run: () => {
+						const ps = GetSystem(ctx, currentStarIndex).planets
+						SetState(CreateSystemTravelState(() => CreateShipState({ atStar }), PARK_STAR, ps[(Mr() * ps.length) | 0]))
+					}
+				},
+				{ label: 'Preview: hyperjump', run: () => SetState(CreateHyperjumpState(() => CreateShipState({ atStar }))) }
+			]))
 
 			refreshLists()
 			updateNavBtns()
@@ -388,6 +406,7 @@ function CreateShipState(opts) {
 
 		OnExit(ctx) {
 			RemoveObjects(ctx, live)
+			RemoveObjects(ctx, sysBackdrop)
 		},
 
 		OnUpdate(ctx, dt) {

@@ -41,7 +41,7 @@ function Resize() {
 Resize()
 
 function Frame(now) {
-	const dt = Math.min(0.05, (now - lastTime) / 1000)
+	const dt = Mmin(0.05, (now - lastTime) / 1000)
 	lastTime = now
 
 	// Checked every frame instead of only on a 'resize' event - covers cases

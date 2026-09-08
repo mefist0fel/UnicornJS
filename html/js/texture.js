@@ -32,15 +32,15 @@ function GenNoiseTexture(gl, size = 64) {
 	let amp = 1
 	for (let freq = 4; freq <= size / 4; freq *= 2) {
 		const g = new Float32Array(freq * freq)
-		for (let i = 0; i < g.length; i++) g[i] = Math.random() * 2 - 1
+		for (let i = 0; i < g.length; i++) g[i] = Mr() * 2 - 1
 		for (let y = 0; y < size; y++) {
 			const fy = y / size * freq
-			const iy = Math.floor(fy)
-			const sy = (1 - Math.cos((fy - iy) * Math.PI)) / 2
+			const iy = Mfl(fy)
+			const sy = (1 - Mc((fy - iy) * PI)) / 2
 			for (let x = 0; x < size; x++) {
 				const fx = x / size * freq
-				const ix = Math.floor(fx)
-				const sx = (1 - Math.cos((fx - ix) * Math.PI)) / 2
+				const ix = Mfl(fx)
+				const sx = (1 - Mc((fx - ix) * PI)) / 2
 				const x0 = ix % freq, x1 = (ix + 1) % freq
 				const y0 = (iy % freq) * freq, y1 = ((iy + 1) % freq) * freq
 				const top = g[y0 + x0] + (g[y0 + x1] - g[y0 + x0]) * sx
@@ -63,22 +63,22 @@ function GenNoiseTexture(gl, size = 64) {
 }
 
 // A ramp string is groups of 3 chars, each group one RGB keyframe in the
-// MESH_ALPHABET quantisation (geometry.js): charIndex / 63 -> 0..1 per
+// mesh quantisation (geometry.js): MeshCharVal(code) / 92 -> 0..1 per
 // channel. Keyframes spread evenly over 0..1, linearly interpolated into a
 // width x 1 RGBA strip.
 function GenRampTexture(gl, str, width = 64) {
 	const kf = []
 	for (let i = 0; i + 2 < str.length; i += 3) {
 		kf.push([
-			MESH_ALPHABET.indexOf(str[i]) / 63,
-			MESH_ALPHABET.indexOf(str[i + 1]) / 63,
-			MESH_ALPHABET.indexOf(str[i + 2]) / 63
+			MeshCharVal(str.charCodeAt(i)) / 92,
+			MeshCharVal(str.charCodeAt(i + 1)) / 92,
+			MeshCharVal(str.charCodeAt(i + 2)) / 92
 		])
 	}
 	const data = new Uint8Array(width * 4)
 	for (let x = 0; x < width; x++) {
 		const t = x / (width - 1) * (kf.length - 1)
-		const i = Math.min(kf.length - 2, Math.floor(t))
+		const i = Mmin(kf.length - 2, Mfl(t))
 		const f = t - i
 		const a = kf[i], b = kf[i + 1] || a
 		data[x * 4] = (a[0] + (b[0] - a[0]) * f) * 255

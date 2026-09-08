@@ -14,15 +14,15 @@ function CreateCamera() {
 		offset: V3(0, 0, 8),
 		rotMat: Mat4FromBasis(V3(1, 0, 0), V3(0, 1, 0), V3(0, 0, 1)),
 		theta: 0,
-		phi: Math.PI / 3,
+		phi: PI / 3,
 		radius: 8,
 		minPhi: 0.05,
-		maxPhi: Math.PI - 0.05,
+		maxPhi: PI - 0.05,
 		minRadius: 3,
 		maxRadius: 20,
 		autoSpeed: 0,
 		panRect: ZERO_RECT,
-		fov: 50 * Math.PI / 180,
+		fov: 50 * PI / 180,
 		aspect: 1,
 		near: 0.1,
 		far: 200,
@@ -77,8 +77,8 @@ function CreateCamera() {
 			if (this.radius > this.maxRadius) this.radius = this.maxRadius
 			this.clampPan()
 
-			const st = Math.sin(this.phi)
-			const back = V3(st * Math.cos(this.theta), Math.cos(this.phi), st * Math.sin(this.theta))
+			const st = Ms(this.phi)
+			const back = V3(st * Mc(this.theta), Mc(this.phi), st * Ms(this.theta))
 			const right = NormV3(CrossV3(V3(0, 1, 0), back))
 			const up = CrossV3(back, right)
 			this.rotMat = Mat4FromBasis(right, up, back)

@@ -14,42 +14,29 @@ var objLoc = null
 var camEyePos = V3(0, 0, 0)
 var gTime = 0
 
-const objVS = `
-attribute vec3 aPos;
-attribute vec3 aNormal;
-uniform mat4 uMvp;
-varying vec3 vNormal;
-void main() {
-	vNormal = aNormal;
-	gl_Position = uMvp * vec4(aPos, 1.0);
-}
-`
-
-// uEmissive is the "self-glow" half of the typical material (surface color
-// is uColor, unchanged) - added on top of the lit diffuse term, not
-// multiplied, so it reads as light the surface gives off (lava cracks etc.)
-// rather than a tint. Defaults to black (no visual change) for every object
-// that doesn't pass one.
-const objFS = `
-precision mediump float;
-uniform vec3 uColor;
-uniform vec3 uEmissive;
-varying vec3 vNormal;
-void main() {
-	vec3 light = normalize(vec3(0.4, 0.8, 0.5));
-	float diff = max(dot(normalize(vNormal), light), 0.0);
-	gl_FragColor = vec4(uColor * (0.35 + 0.65 * diff) + uEmissive, 1.0);
-}
-`
+// Flat-lit solid-colour shader for cubes/rings/lines. GLSL identifiers are
+// 1-char to save bytes (they're the JS<->shader contract, so the
+// getAttribLocation/getUniformLocation names below match). Readable form:
+//   VS: attribute vec3 aPos; attribute vec3 aNormal; uniform mat4 uMvp;
+//       varying vec3 vNormal;
+//       void main(){ vNormal=aNormal; gl_Position=uMvp*vec4(aPos,1.); }
+//   FS: uniform vec3 uColor; uniform vec3 uEmissive; varying vec3 vNormal;
+//       // uEmissive is added on top of the lit diffuse term (light the
+//       // surface gives off - lava cracks etc.), not multiplied.
+//       void main(){ vec3 L=normalize(vec3(.4,.8,.5));
+//         float f=max(dot(normalize(vNormal),L),0.);
+//         gl_FragColor=vec4(uColor*(.35+.65*f)+uEmissive,1.); }
+const objVS = `attribute vec3 a;attribute vec3 b;uniform mat4 c;varying vec3 n;void main(){n=b;gl_Position=c*vec4(a,1.);}`
+const objFS = `precision mediump float;uniform vec3 d;uniform vec3 e;varying vec3 n;void main(){vec3 l=normalize(vec3(.4,.8,.5));float f=max(dot(normalize(n),l),0.);gl_FragColor=vec4(d*(.35+.65*f)+e,1.);}`
 
 function InitObjectRenderer(gl) {
 	objProgram = CreateProgram(gl, objVS, objFS)
 	objLoc = {
-		aPos: gl.getAttribLocation(objProgram, 'aPos'),
-		aNormal: gl.getAttribLocation(objProgram, 'aNormal'),
-		uMvp: gl.getUniformLocation(objProgram, 'uMvp'),
-		uColor: gl.getUniformLocation(objProgram, 'uColor'),
-		uEmissive: gl.getUniformLocation(objProgram, 'uEmissive')
+		aPos: gl.getAttribLocation(objProgram, 'a'),
+		aNormal: gl.getAttribLocation(objProgram, 'b'),
+		uMvp: gl.getUniformLocation(objProgram, 'c'),
+		uColor: gl.getUniformLocation(objProgram, 'd'),
+		uEmissive: gl.getUniformLocation(objProgram, 'e')
 	}
 }
 
@@ -135,10 +122,10 @@ function CreateStarfield(gl, count = 180) {
 	const out = []
 	const R = 150
 	while (out.length < count) {
-		const p = V3((Math.random() * 2 - 1) * R, (Math.random() * 2 - 1) * R, (Math.random() * 2 - 1) * R)
+		const p = V3((Mr() * 2 - 1) * R, (Mr() * 2 - 1) * R, (Mr() * 2 - 1) * R)
 		const d = LenV3(p)
 		if (d < 70 || d > R) continue
-		out.push(CreateCubeObject(gl, p, 0.2 + Math.random() * Math.random() * 0.9, [1, 1, 1]))
+		out.push(CreateCubeObject(gl, p, 0.2 + Mr() * Mr() * 0.9, [1, 1, 1]))
 	}
 	return out
 }
@@ -164,8 +151,8 @@ function CreateOrbitMarkers(gl, count, size, color) {
 		objs,
 		update(center, radius, angle) {
 			for (let i = 0; i < count; i++) {
-				const a = angle + i * Math.PI * 2 / count
-				objs[i].position = V3(center[0] + Math.cos(a) * radius, center[1], center[2] + Math.sin(a) * radius)
+				const a = angle + i * PI * 2 / count
+				objs[i].position = V3(center[0] + Mc(a) * radius, center[1], center[2] + Ms(a) * radius)
 			}
 		}
 	}
@@ -186,67 +173,40 @@ var planetProgram = null
 var planetLoc = null
 var noiseTex = null
 
-const planetVS = `
-attribute vec3 aPos;
-attribute vec3 aNormal;
-uniform mat4 uMvp;
-uniform mat4 uModel;
-varying vec3 vObjPos;
-varying vec3 vWorldPos;
-varying vec3 vNormal;
-void main() {
-	vObjPos = aPos;
-	vNormal = aNormal;
-	vWorldPos = (uModel * vec4(aPos, 1.0)).xyz;
-	gl_Position = uMvp * vec4(aPos, 1.0);
-}
-`
-
-const planetFS = `
-precision mediump float;
-uniform sampler2D uNoise;
-uniform sampler2D uRamp;
-uniform vec3 uPlaneScale;
-uniform vec3 uOffset;
-uniform vec3 uDrift;
-uniform float uTime;
-uniform float uEmissive;
-uniform vec3 uEye;
-varying vec3 vObjPos;
-varying vec3 vWorldPos;
-varying vec3 vNormal;
-void main() {
-	vec3 n = normalize(vNormal);
-	vec3 w = pow(abs(n), vec3(4.0));
-	w /= (w.x + w.y + w.z);
-	vec3 q = vObjPos * uPlaneScale + uOffset + uTime * uDrift;
-	float h = texture2D(uNoise, q.yz).r * w.x
-		+ texture2D(uNoise, q.zx).r * w.y
-		+ texture2D(uNoise, q.xy).r * w.z;
-	vec3 col = texture2D(uRamp, vec2(clamp(h, 0.02, 0.98), 0.5)).rgb;
-	float d = max(dot(n, normalize(vec3(0.4, 0.8, 0.5))), 0.0);
-	vec3 lit = col * (0.3 + 0.7 * d);
-	float rim = pow(1.0 - max(dot(n, normalize(uEye - vWorldPos)), 0.0), 3.0);
-	vec3 glow = col + rim * vec3(1.0, 0.95, 0.85) * 0.6;
-	gl_FragColor = vec4(mix(lit, glow, uEmissive), 1.0);
-}
-`
+// GLSL identifiers 1-char to save bytes; the getXxxLocation names below match.
+// Readable form (a=aPos b=aNormal c=uMvp m=uModel N=uNoise R=uRamp
+// P=uPlaneScale O=uOffset D=uDrift T=uTime E=uEmissive Y=uEye
+// p=vObjPos W=vWorldPos n=vNormal):
+//   VS: p=aPos; n=aNormal; W=(uModel*vec4(aPos,1.)).xyz;
+//       gl_Position=uMvp*vec4(aPos,1.);
+//   FS: vec3 n=normalize(vNormal);
+//       vec3 w=pow(abs(n),vec3(4.));  w/=w.x+w.y+w.z;
+//       vec3 q=vObjPos*uPlaneScale + uOffset + uTime*uDrift;
+//       float h = triplanar sample of uNoise by q.yz/q.zx/q.xy blended by w;
+//       vec3 col = texture2D(uRamp, vec2(clamp(h,.02,.98),.5)).rgb;
+//       float d=max(dot(n,normalize(vec3(.4,.8,.5))),0.);
+//       vec3 lit=col*(.3+.7*d);
+//       float rim=pow(1.-max(dot(n,normalize(uEye-vWorldPos)),0.),3.);
+//       vec3 glow=col + rim*vec3(1.,.95,.85)*.6;
+//       gl_FragColor=vec4(mix(lit,glow,uEmissive),1.);
+const planetVS = `attribute vec3 a;attribute vec3 b;uniform mat4 c;uniform mat4 m;varying vec3 p;varying vec3 W;varying vec3 n;void main(){p=a;n=b;W=(m*vec4(a,1.)).xyz;gl_Position=c*vec4(a,1.);}`
+const planetFS = `precision mediump float;uniform sampler2D N;uniform sampler2D R;uniform vec3 P;uniform vec3 O;uniform vec3 D;uniform float T;uniform float E;uniform vec3 Y;varying vec3 p;varying vec3 W;varying vec3 n;void main(){vec3 x=normalize(n);vec3 w=pow(abs(x),vec3(4.));w/=w.x+w.y+w.z;vec3 q=p*P+O+T*D;float h=texture2D(N,q.yz).r*w.x+texture2D(N,q.zx).r*w.y+texture2D(N,q.xy).r*w.z;vec3 c=texture2D(R,vec2(clamp(h,.02,.98),.5)).rgb;float d=max(dot(x,normalize(vec3(.4,.8,.5))),0.);vec3 l=c*(.3+.7*d);float r=pow(1.-max(dot(x,normalize(Y-W)),0.),3.);vec3 g=c+r*vec3(1.,.95,.85)*.6;gl_FragColor=vec4(mix(l,g,E),1.);}`
 
 function InitPlanetRenderer(gl) {
 	planetProgram = CreateProgram(gl, planetVS, planetFS)
 	planetLoc = {
-		aPos: gl.getAttribLocation(planetProgram, 'aPos'),
-		aNormal: gl.getAttribLocation(planetProgram, 'aNormal'),
-		uMvp: gl.getUniformLocation(planetProgram, 'uMvp'),
-		uModel: gl.getUniformLocation(planetProgram, 'uModel'),
-		uNoise: gl.getUniformLocation(planetProgram, 'uNoise'),
-		uRamp: gl.getUniformLocation(planetProgram, 'uRamp'),
-		uPlaneScale: gl.getUniformLocation(planetProgram, 'uPlaneScale'),
-		uOffset: gl.getUniformLocation(planetProgram, 'uOffset'),
-		uDrift: gl.getUniformLocation(planetProgram, 'uDrift'),
-		uTime: gl.getUniformLocation(planetProgram, 'uTime'),
-		uEmissive: gl.getUniformLocation(planetProgram, 'uEmissive'),
-		uEye: gl.getUniformLocation(planetProgram, 'uEye')
+		aPos: gl.getAttribLocation(planetProgram, 'a'),
+		aNormal: gl.getAttribLocation(planetProgram, 'b'),
+		uMvp: gl.getUniformLocation(planetProgram, 'c'),
+		uModel: gl.getUniformLocation(planetProgram, 'm'),
+		uNoise: gl.getUniformLocation(planetProgram, 'N'),
+		uRamp: gl.getUniformLocation(planetProgram, 'R'),
+		uPlaneScale: gl.getUniformLocation(planetProgram, 'P'),
+		uOffset: gl.getUniformLocation(planetProgram, 'O'),
+		uDrift: gl.getUniformLocation(planetProgram, 'D'),
+		uTime: gl.getUniformLocation(planetProgram, 'T'),
+		uEmissive: gl.getUniformLocation(planetProgram, 'E'),
+		uEye: gl.getUniformLocation(planetProgram, 'Y')
 	}
 	noiseTex = GenNoiseTexture(gl, 64)
 }
@@ -333,6 +293,6 @@ function IntersectSphere(origin, dir, center, radius) {
 	const c = DotV3(oc, oc) - radius * radius
 	const disc = b * b - c
 	if (disc < 0) return null
-	const t = -b - Math.sqrt(disc)
+	const t = -b - Msqrt(disc)
 	return t > 0 ? t : null
 }

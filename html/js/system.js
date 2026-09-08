@@ -14,18 +14,18 @@
 // emissive 1.
 
 const PLANET_ARCHETYPES = [
-	{ ramp: 'CFOFOeLelxseRgOJUK679', planeScale: [1.7, 1.7, 1.7], drift: [0, 0, 0], emissive: 0, radiusMul: 1, moonChance: 0.4 },       // terran
-	{ ramp: 'CGPFPgKejlv0', planeScale: [1.6, 1.6, 1.6], drift: [0, 0, 0], emissive: 0, radiusMul: 1, moonChance: 0.25 },               // oceanic
-	{ ramp: 'PGEeMHsWL0oe', planeScale: [2, 2, 2], drift: [0, 0, 0], emissive: 0, radiusMul: 0.9, moonChance: 0.5 },                    // mars
-	{ ramp: 'FFFOOObbcppq224', planeScale: [2.3, 2.3, 2.3], drift: [0, 0, 0], emissive: 0, radiusMul: 0.8, moonChance: 0.05 },          // rocky-gray
-	{ ramp: 'RMJgZRqla1zp', planeScale: [2.1, 2.1, 2.1], drift: [0, 0, 0], emissive: 0, radiusMul: 0.95, moonChance: 0.3 },             // rocky-tan
-	{ ramp: 'ls0269///x46', planeScale: [1.8, 1.8, 1.8], drift: [0, 0, 0], emissive: 0, radiusMul: 0.9, moonChance: 0.2 },              // icy
-	{ ramp: 'ECCREClJF5bH/0W', planeScale: [2.2, 2.2, 2.2], drift: [0.01, 0, 0.01], emissive: 0.28, radiusMul: 0.9, moonChance: 0.15 }, // volcanic
-	{ ramp: 'WOJoeU2wl0jR961', planeScale: [0.16, 9, 0.16], drift: [0.05, 0, 0.02], emissive: 0, radiusMul: 1.5, moonChance: 0.8, giant: true }, // gas giant (warm)
-	{ ramp: 'EGUJRlWjz059', planeScale: [0.16, 7, 0.16], drift: [0.04, 0, 0.02], emissive: 0, radiusMul: 1.4, moonChance: 0.7, giant: true }     // gas giant (blue)
+	{ ramp: '$(5(5L1LWjcL:P5.>/wyz', planeScale: [1.7, 1.7, 1.7], drift: [0, 0, 0], emissive: 0, radiusMul: 1, moonChance: 0.4 },       // terran
+	{ ramp: '#*7(7P/LTWgn', planeScale: [1.6, 1.6, 1.6], drift: [0, 0, 0], emissive: 0, radiusMul: 1, moonChance: 0.25 },               // oceanic
+	{ ramp: '7*%L3,cA1n[L', planeScale: [2, 2, 2], drift: [0, 0, 0], emissive: 0, radiusMul: 0.9, moonChance: 0.5 },                    // mars
+	{ ramp: '(()556IIJ^^_qqs', planeScale: [2.3, 2.3, 2.3], drift: [0, 0, 0], emissive: 0, radiusMul: 0.8, moonChance: 0.05 },          // rocky-gray
+	{ ramp: ':3.PE:_WGpl^', planeScale: [2.1, 2.1, 2.1], drift: [0, 0, 0], emissive: 0, radiusMul: 0.95, moonChance: 0.3 },             // rocky-tan
+	{ ramp: 'Wcnqwz~~~jsw', planeScale: [1.8, 1.8, 1.8], drift: [0, 0, 0], emissive: 0, radiusMul: 0.9, moonChance: 0.2 },              // icy
+	{ ramp: '%$$:%$W.(uI,~nA', planeScale: [2.2, 2.2, 2.2], drift: [0.01, 0, 0.01], emissive: 0.28, radiusMul: 0.9, moonChance: 0.15 }, // volcanic
+	{ ramp: 'A5.[L>qhWnT:zwp', planeScale: [0.16, 9, 0.16], drift: [0.05, 0, 0.02], emissive: 0, radiusMul: 1.5, moonChance: 0.8, giant: true }, // gas giant (warm)
+	{ ramp: '%*>.:WATlnuz', planeScale: [0.16, 7, 0.16], drift: [0.04, 0, 0.02], emissive: 0, radiusMul: 1.4, moonChance: 0.7, giant: true }     // gas giant (blue)
 ]
 
-const MOON_ARCH = { ramp: 'FFFOOObbcppq224', planeScale: [2.2, 2.2, 2.2], drift: [0, 0, 0] }
+const MOON_ARCH = { ramp: '(()556IIJ^^_qqs', planeScale: [2.2, 2.2, 2.2], drift: [0, 0, 0] }
 
 const SYSTEM_PLANET_MIN = 4
 const SYSTEM_PLANET_MAX = 7
@@ -54,46 +54,47 @@ function GetSystem(ctx, starIndex) {
 	let sys = systemCache[starIndex]
 	if (sys) return sys
 
-	const starType = STAR_ARCHETYPES[Math.floor(Math.random() * STAR_ARCHETYPES.length)]
+	const starType = STAR_ARCHETYPES[Mfl(Mr() * STAR_ARCHETYPES.length)]
 	const starRadius = SYSTEM_STAR_BASE_RADIUS * starType.radius
-	const starOff = V3(Math.random() * 7, Math.random() * 7, Math.random() * 7)
+	const starOff = V3(Mr() * 7, Mr() * 7, Mr() * 7)
 	const star = CreatePlanetObject(ctx.gl, V3(0, 0, 0), starRadius, GetRamp(ctx.gl, starType.ramp), starType.planeScale, starOff, starType.drift, 1, 20, 26)
 	star.radius += 0.3 // pad the *pick* sphere only (render scale is baked in already) - stars/planets shrank a lot, keep them clickable
 
-	const count = SYSTEM_PLANET_MIN + Math.floor(Math.random() * (SYSTEM_PLANET_MAX - SYSTEM_PLANET_MIN + 1))
+	const count = SYSTEM_PLANET_MIN + Mfl(Mr() * (SYSTEM_PLANET_MAX - SYSTEM_PLANET_MIN + 1))
 	const planets = []
 	const rings = []
 	let dist = starRadius * 2.6 + 1.1
 	for (let i = 0; i < count; i++) {
-		dist += 0.75 + Math.random() * 0.5
-		const angle = Math.random() * Math.PI * 2
-		const pos = V3(Math.cos(angle) * dist, 0, Math.sin(angle) * dist)
-		const type = PLANET_ARCHETYPES[Math.floor(Math.random() * PLANET_ARCHETYPES.length)]
-		const radius = SYSTEM_PLANET_BASE_RADIUS * (0.8 + Math.random() * 0.5) * type.radiusMul
+		dist += 0.75 + Mr() * 0.5
+		const angle = Mr() * PI * 2
+		const pos = V3(Mc(angle) * dist, 0, Ms(angle) * dist)
+		const type = PLANET_ARCHETYPES[Mfl(Mr() * PLANET_ARCHETYPES.length)]
+		const radius = SYSTEM_PLANET_BASE_RADIUS * (0.8 + Mr() * 0.5) * type.radiusMul
 
 		const moons = []
-		if (Math.random() < type.moonChance) {
-			const moonCount = Math.random() < 0.25 ? 2 : 1
+		if (Mr() < type.moonChance) {
+			const moonCount = Mr() < 0.25 ? 2 : 1
 			for (let m = 0; m < moonCount; m++) {
-				const moff = V3(Math.random() * 7, Math.random() * 7, Math.random() * 7)
+				const moff = V3(Mr() * 7, Mr() * 7, Mr() * 7)
 				moons.push({
-					object: CreatePlanetObject(ctx.gl, V3(0, 0, 0), radius * (0.2 + Math.random() * 0.12), GetRamp(ctx.gl, MOON_ARCH.ramp), MOON_ARCH.planeScale, moff, MOON_ARCH.drift, 0, 10, 12),
+					object: CreatePlanetObject(ctx.gl, V3(0, 0, 0), radius * (0.2 + Mr() * 0.12), GetRamp(ctx.gl, MOON_ARCH.ramp), MOON_ARCH.planeScale, moff, MOON_ARCH.drift, 0, 10, 12),
 					dist: radius * (1.8 + m * 0.9),
-					angle: Math.random() * Math.PI * 2,
-					speed: 0.5 + Math.random() * 0.5
+					angle: Mr() * PI * 2,
+					speed: 0.5 + Mr() * 0.5
 				})
 			}
 		}
 
-		const off = V3(Math.random() * 7, Math.random() * 7, Math.random() * 7)
+		const off = V3(Mr() * 7, Mr() * 7, Mr() * 7)
 		const planetObj = CreatePlanetObject(ctx.gl, pos, radius, GetRamp(ctx.gl, type.ramp), type.planeScale, off, type.drift, type.emissive, 24, 32)
 		planetObj.radius += 0.25 // pick-only padding, see the star's above
-		const hasEnemies = Math.random() < 0.55
+		const hasEnemies = Mr() < 0.55
 		planets.push({
 			name: 'Planet ' + (i + 1),
 			object: planetObj,
 			radius,
 			dist,
+			angle, // kept for the decoration-scale layout, see DecoSystem
 			moons,
 			hasEnemies,
 			enemyCleared: false,
@@ -104,7 +105,57 @@ function GetSystem(ctx, starIndex) {
 	// Where the player's ship marker parks after a hyperjump (no planet yet):
 	// one ring outside the last planet.
 	const outerRadius = dist + 1.1
-	sys = { star, starRadius, planets, rings, parkedPlanet: null, outerRadius }
+	sys = { star, starRadius, planets, rings, parkedPlanet: null, outerRadius, deco: null }
 	systemCache[starIndex] = sys
 	return sys
+}
+
+// ---- decoration scale ----
+//
+// The map (system_state) draws the system tiny and caricature-tight. When the
+// ship "hangs" somewhere in the system (ship_state, system_travel_state) we
+// want the real thing: one body looming nearby, the rest strung far out, the
+// star way off. That's a SEPARATE set of CreatePlanetObject instances (bigger
+// radii, distances blown up non-linearly, more tessellation on the big ones),
+// cached on sys.deco. The ship stays at the origin; we move the whole system.
+const DECO_SCALE = 7  // planet<->star distances blow up this much
+const DECO_RADIUS = 5 // body radii blow up this much
+
+function decoDist(d) {
+	return (d - 2) * DECO_SCALE + d * 1.5 // inner bodies close, outer ones far
+}
+
+function decoCopy(ctx, mapObj, radius, basePos) {
+	const lat = Mmax(14, Mmin(46, Math.round(12 + radius * 6)))
+	return CreatePlanetObject(ctx.gl, basePos.slice(), radius, mapObj.rampTex, mapObj.planeScale, mapObj.offset, mapObj.drift, mapObj.emissive, lat, Math.round(lat * 1.3))
+}
+
+function DecoSystem(ctx, sys) {
+	if (sys.deco) return sys.deco
+	const parts = [] // [{ obj, base }] - base = canonical deco world pos
+	parts.push({ obj: decoCopy(ctx, sys.star, sys.starRadius * DECO_RADIUS, V3(0, 0, 0)), base: V3(0, 0, 0) })
+	for (const p of sys.planets) {
+		const dd = decoDist(p.dist)
+		p.decoBase = V3(Mc(p.angle) * dd, 0, Ms(p.angle) * dd)
+		p.decoRadius = p.radius * DECO_RADIUS
+		parts.push({ obj: decoCopy(ctx, p.object, p.decoRadius, p.decoBase), base: p.decoBase })
+		for (const m of p.moons) {
+			const mb = AddV3(p.decoBase, V3(Mc(m.angle) * m.dist * DECO_RADIUS * 3, 0, Ms(m.angle) * m.dist * DECO_RADIUS * 3))
+			parts.push({ obj: decoCopy(ctx, m.object, m.object.scale * DECO_RADIUS, mb), base: mb })
+		}
+	}
+	sys.deco = { parts }
+	return sys.deco
+}
+
+// Where the ship hangs, in deco world coords - beside the parked body.
+function DecoVicinity(sys, body) {
+	if (body && body !== PARK_STAR) return AddV3(body.decoBase, V3(body.decoRadius * 2.2 + 3, 0, 0))
+	return V3(sys.starRadius * DECO_RADIUS * 2.2 + 4, 0, 0)
+}
+
+// Offset every deco part so the ship (origin) sits at `body`'s vicinity.
+function PlaceDeco(sys, body) {
+	const v = DecoVicinity(sys, body)
+	for (const p of sys.deco.parts) p.obj.position = SubV3(p.base, v)
 }

@@ -55,5 +55,5 @@ function CreateBar(anchor, color) {
 	fill.style.background = color
 	el.appendChild(fill)
 	uiRoot.appendChild(el)
-	return { el, set(pct) { fill.style.height = Math.max(0, Math.min(100, pct)) + '%' } }
+	return { el, set(pct) { fill.style.height = Mmax(0, Mmin(100, pct)) + '%' } }
 }

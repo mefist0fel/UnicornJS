@@ -8,11 +8,11 @@ function GenSphereMesh(latBands = 12, lonBands = 16) {
 	const normals = []
 	const indices = []
 	for (let lat = 0; lat <= latBands; lat++) {
-		const theta = lat * Math.PI / latBands
-		const st = Math.sin(theta), ct = Math.cos(theta)
+		const theta = lat * PI / latBands
+		const st = Ms(theta), ct = Mc(theta)
 		for (let lon = 0; lon <= lonBands; lon++) {
-			const phi = lon * 2 * Math.PI / lonBands
-			const sp = Math.sin(phi), cp = Math.cos(phi)
+			const phi = lon * 2 * PI / lonBands
+			const sp = Ms(phi), cp = Mc(phi)
 			const x = cp * st, y = ct, z = sp * st
 			positions.push(x, y, z)
 			normals.push(x, y, z)
@@ -64,8 +64,8 @@ function GenRingMesh(segments = 40, thickness = 0.008) {
 	const normals = []
 	const indices = []
 	for (let i = 0; i <= segments; i++) {
-		const a = i / segments * Math.PI * 2
-		const c = Math.cos(a), s = Math.sin(a)
+		const a = i / segments * PI * 2
+		const c = Mc(a), s = Ms(a)
 		positions.push(c, 0, s, c * (1 - thickness), 0, s * (1 - thickness))
 		normals.push(0, 1, 0, 0, 1, 0)
 	}
@@ -94,8 +94,8 @@ function GenRingOfCubes(seg, radius, size) {
 		[[0, -1, 0], [-1, -1, -1, 1, -1, -1, 1, -1, 1, -1, -1, 1]]
 	]
 	for (let i = 0; i < seg; i++) {
-		const a = i * Math.PI * 2 / seg
-		const cx = Math.cos(a) * radius, cy = Math.sin(a) * radius
+		const a = i * PI * 2 / seg
+		const cx = Mc(a) * radius, cy = Ms(a) * radius
 		for (let f = 0; f < 6; f++) {
 			const n = faces[f][0], v = faces[f][1]
 			const base = positions.length / 3
@@ -109,44 +109,44 @@ function GenRingOfCubes(seg, radius, size) {
 	return { positions, normals, indices }
 }
 
-// ---- string-encoded meshes ----
+// ---- string-encoded meshes / data ----
 //
-// A mesh can be written as one short JS string literal instead of an array
-// of numbers - a string literal is already about as small as it can get
-// after minification (no commas/brackets to strip), so this is a way to
-// keep hand-authored meshes cheap in the zip without hand-writing a base64
-// encoder/decoder pair for a whole binary format.
+// One JS string literal instead of an array of numbers: after minification a
+// string is about as tight as it gets (no commas/brackets to strip). Instead
+// of a fixed 64-char alphabet we quantize straight against the character code
+// over the whole printable ASCII range - no lookup-table constant to carry.
 //
-// Alphabet: standard base64 (A-Z a-z 0-9 + /), 64 characters. We could fit
-// more - printable ASCII is 0x20 ' ' .. 0x7E '~' (95 chars), and inside a
-// single-quoted JS string literal only 2 of those need escaping (' and \),
-// leaving 93 usable - but we only need 64 distinct values (6 bits) per
-// number, and base64 is a well-known alphabet, so there's no reason to
-// invent a wider one.
+// Usable codes: 0x20 ' ' .. 0x7E '~' (95), minus the two that need escaping
+// in a single-quoted literal, 0x27 ' and 0x5C \ -> 93 contiguous LEVELS
+// (index n = 0..92). Two `if`s bridge the gaps. 93 is odd, so the centre and
+// the quarter mark are exact:
+//   n=0   -> ' '   -> signed -1.0   / unsigned 0.0
+//   n=46  -> 'O'   -> signed  0.0   / unsigned 0.5
+//   n=69  -> 'g'   -> signed +0.5   / unsigned 0.75
+//   n=92  -> '~'   -> signed +1.0   / unsigned 1.0
+//   full row: (space)!"#$%&()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[]^_`abcdefghijklmnopqrstuvwxyz{|}~
 //
-// Each character = one coordinate, quantized to 64 signed levels:
-//   charIndex (0..63) -> level = charIndex - 32 (-32..31, a signed 6-bit int)
-//   level -> coordinate = level / 32  (-1.0 .. 0.96875)
-// Note +1.0 itself is not representable (only +31/32 = 0.96875 is) - that's
-// the usual asymmetry of signed quantization (like an int8 being -128..127,
-// not -128..128), fine for draft-quality geometry.
-//
-// 3 characters = 1 point (X, Y, Z). 4 points (12 characters) = 1 quad face,
-// triangulated as (0,1,2)+(0,2,3) - so the 4 points of a face must already
-// be wound CCW as seen from outside the mesh, same as a hand-written
-// GenCubeMesh() face. Normals are NOT stored (would cost another 12 chars
-// per face for no visual gain at this scale) - they're computed here, once
-// per face, from the quad's own two edges, exactly like the flat shading
-// GenCubeMesh() does by hand.
-//
-// Example - a unit cube's +Z face has corners (going CCW when viewed from
-// +Z, i.e. from outside): (-1,-1,1) (1,-1,1) (1,1,1) (-1,1,1). Quantized:
-// -1 -> level -32 -> char 'A' (index 0); 1 -> level 31 -> char '/' (index
-// 63). So that one face alone would encode as 'AA/' + '/A/' + '//' + 'A/'
-// ... (X Y Z per point, 3 points shown) - see CUBE_MESH below for the full
-// 6-face (24-point, 72-char) string, generated the same way offline.
-const MESH_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+// MeshCharVal(code) -> n. Signed coord = (n-46)/46 ; unsigned = n/92.
+// MeshEncChar(n) -> the char (offline tooling; closure drops it as dead code).
+function MeshCharVal(code) {
+	let n = code - 32
+	if (code > 0x27) n--
+	if (code > 0x5C) n--
+	return n
+}
 
+function MeshEncChar(n) {
+	n = Mmax(0, Mmin(92, Math.round(n)))
+	let c = n + 32
+	if (c >= 0x27) c++
+	if (c >= 0x5C) c++
+	return String.fromCharCode(c)
+}
+
+// 3 chars = 1 point (X,Y,Z). 4 points (12 chars) = 1 quad face, split
+// (0,1,2)+(0,2,3) - the 4 points must be wound CCW seen from outside, like a
+// hand-written GenCubeMesh() face. Normals aren't stored: computed once per
+// face from its own two edges (flat shading, same as GenCubeMesh).
 function DecodeMeshString(s) {
 	const positions = []
 	const normals = []
@@ -154,9 +154,9 @@ function DecodeMeshString(s) {
 	const points = []
 	for (let i = 0; i < s.length; i += 3) {
 		points.push([
-			(MESH_ALPHABET.indexOf(s[i]) - 32) / 32,
-			(MESH_ALPHABET.indexOf(s[i + 1]) - 32) / 32,
-			(MESH_ALPHABET.indexOf(s[i + 2]) - 32) / 32
+			(MeshCharVal(s.charCodeAt(i)) - 46) / 46,
+			(MeshCharVal(s.charCodeAt(i + 1)) - 46) / 46,
+			(MeshCharVal(s.charCodeAt(i + 2)) - 46) / 46
 		])
 	}
 	for (let q = 0; q < points.length; q += 4) {
@@ -172,25 +172,9 @@ function DecodeMeshString(s) {
 	return { positions, normals, indices }
 }
 
-// Reverse direction: a flat list of [x,y,z] points (each in -1..1) back
-// into a MESH_ALPHABET string, for regenerating a CUBE_MESH-style constant
-// offline (e.g. from a small modelling script) rather than by hand.
-function EncodeMeshPoints(points) {
-	let s = ''
-	for (const p of points) {
-		for (const v of p) {
-			let level = Math.round(v * 32)
-			if (level < -32) level = -32
-			if (level > 31) level = 31
-			s += MESH_ALPHABET[level + 32]
-		}
-	}
-	return s
-}
-
-// One unit cube (6 faces x 4 verts), generated offline with EncodeMeshPoints
+// One unit cube (6 faces x 4 verts), regenerated offline with MeshEncChar
 // from the same corner coordinates as GenCubeMesh() - see docs/meshformat.md.
-const CUBE_MESH = 'A///////AA/AAAA/AA/A/AA/AA//A////A///AAAAAA/A//A/A//AA//A///AAAAA/A//A/A'
+const CUBE_MESH = ' ~~~~~~~  ~    ~  ~ ~  ~  ~~ ~~~~ ~~~      ~ ~~ ~ ~~  ~~ ~~~     ~ ~~ ~ '
 
 function GenEncodedCubeMesh() {
 	return DecodeMeshString(CUBE_MESH)

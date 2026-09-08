@@ -23,7 +23,7 @@ function InitResHud() {
 }
 
 function AddRes(idx, amount) {
-	res[idx] = Math.max(0, res[idx] + amount)
+	res[idx] = Mmax(0, res[idx] + amount)
 	RenderResHud()
 }
 

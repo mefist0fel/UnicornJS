@@ -67,7 +67,7 @@ function CreateInput(canvas) {
 		input.pdy += n[1] - lastNy
 		lastNx = n[0]
 		lastNy = n[1]
-		movedPx += Math.abs(e.clientX - lastPxX) + Math.abs(e.clientY - lastPxY)
+		movedPx += Ma(e.clientX - lastPxX) + Ma(e.clientY - lastPxY)
 		lastPxX = e.clientX
 		lastPxY = e.clientY
 	})
