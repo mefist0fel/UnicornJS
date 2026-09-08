@@ -70,6 +70,13 @@ function CrossV3(a, b) {
 }
 function DotV3(a, b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2] }
 function LenV3(a) { return Msqrt(DotV3(a, a)) }
+// Rotate a vec3 around +Y (up) by `ang` radians. RotY([0,0,-1], ang) points the
+// local -z "nose" to (-sin ang, 0, -cos ang) - system_travel_state uses it to
+// yaw the ship (and its spark axis) onto the heading.
+function RotY(v, ang) {
+	const s = Ms(ang), c = Mc(ang)
+	return [v[0] * c + v[2] * s, v[1], v[2] * c - v[0] * s]
+}
 
 // Interpolate angle a -> b along the shortest arc (used for the travel-state
 // camera swing, where theta can wrap past +-PI).

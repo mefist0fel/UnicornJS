@@ -29,7 +29,7 @@ function getAC() {
 	_master.gain.value = _muted ? 0 : 0.6
 	_master.connect(_ac.destination)
 	_musicBus = _ac.createGain()
-	_musicBus.gain.value = 0.55
+	_musicBus.gain.value = 0.7
 	_musicBus.connect(_master)
 	return _ac
 }
@@ -143,10 +143,12 @@ function SfxShoot(kind) {
 
 // ---- ambient music: slow ticking suspense ----
 //
-// A 16-step loop at a crawl. Two detuned low drones run continuously; the loop
-// only sprinkles ticks (filtered-noise blips), a downbeat sine thud, and sparse
-// minor-key notes with a long tail. Scheduled ~0.25s ahead on a 60ms pump so it
-// stays steady without a per-sample callback.
+// A 16-step loop at a crawl. Two drones (root + a fifth, an unresolved/tense
+// interval) run continuously; the loop only sprinkles ticks (filtered-noise
+// blips), a downbeat thud, and sparse minor-key notes with a long tail.
+// Scheduled ~0.25s ahead on a 60ms pump so it stays steady without a per-sample
+// callback. Levels are deliberately low but kept out of the sub-bass so it's
+// still audible on laptop/phone speakers.
 const MUS_BPM = 60
 const MUS_STEPS = 16
 const MUS_TICK = [1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1]   // hi-tick pattern
@@ -166,15 +168,15 @@ function mkDrone(freq) {
 	osc.frequency.value = freq
 	const lp = c.createBiquadFilter()
 	lp.type = 'lowpass'
-	lp.frequency.value = 280
+	lp.frequency.value = 650 // keep it low but out of the "inaudible on laptop speakers" sub range
 	const g = c.createGain()
 	g.gain.setValueAtTime(0.0001, c.currentTime)
-	g.gain.linearRampToValueAtTime(0.05, c.currentTime + 2.5)
+	g.gain.linearRampToValueAtTime(0.13, c.currentTime + 2.5)
 	// very slow gain wobble so the pad "breathes"
 	const lfo = c.createOscillator()
 	lfo.frequency.value = 0.06
 	const lg = c.createGain()
-	lg.gain.value = 0.02
+	lg.gain.value = 0.05
 	lfo.connect(lg)
 	lg.connect(g.gain)
 	osc.connect(lp)
@@ -186,16 +188,16 @@ function mkDrone(freq) {
 }
 
 function musStep(step, when) {
-	if (MUS_TICK[step]) Noise({ dur: 0.05, filter: 'bandpass', cut: 4200, vol: 0.05, at: when, bus: _musicBus })
+	if (MUS_TICK[step]) Noise({ dur: 0.05, filter: 'bandpass', cut: 3200, vol: 0.09, at: when, bus: _musicBus })
 	const s = MUS_NOTE[step]
 	if (s >= 0) {
 		Tone({
-			type: 'triangle', freq: MUS_ROOT * Math.pow(2, s / 12),
+			type: 'triangle', freq: MUS_ROOT * Math.pow(2, s / 12 + 1), // an octave up so the notes read on small speakers
 			attack: 0.02, decay: 0.12, sustain: 0.15, sustainLevel: 0.5, release: 1.1,
-			vol: 0.05, at: when, bus: _musicBus
+			vol: 0.08, at: when, bus: _musicBus
 		})
 	}
-	if (step === 0) Tone({ type: 'sine', freq: 44, decay: 0.5, release: 0.5, vol: 0.12, at: when, bus: _musicBus })
+	if (step === 0) Tone({ type: 'sine', freq: 55, decay: 0.5, release: 0.5, vol: 0.16, at: when, bus: _musicBus })
 }
 
 function musPump() {
@@ -203,7 +205,7 @@ function musPump() {
 	if (!c || !_musicOn || c.state !== 'running') return
 	if (!_musNext) {
 		_musNext = c.currentTime + 0.1
-		_drones = [mkDrone(MUS_ROOT / 2), mkDrone(MUS_ROOT / 2 + 0.4)]
+		_drones = [mkDrone(MUS_ROOT), mkDrone(MUS_ROOT * 1.5)] // root + a fifth = unresolved / tense
 	}
 	const dt = 60 / MUS_BPM / 4 // sixteenth-note step
 	while (_musNext < c.currentTime + 0.25) {
