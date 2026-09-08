@@ -8,6 +8,7 @@ next to this script and in dist/. See docs/build.md.
   python html/packed/build.py --skip-minify   fast unminified sanity build only
                                                (no zip - wouldn't reflect real size)
 """
+import datetime
 import re
 import shutil
 import subprocess
@@ -28,6 +29,16 @@ OUT_HTML = PACKED_DIR / 'index.html'
 DEV_HTML = PACKED_DIR / 'index.dev.html'
 PACKED_ZIP = PACKED_DIR / 'game.zip'
 DIST_ZIP = ROOT_DIR / 'dist' / 'game.zip'
+# accumulating build-size history, one row per release build (appended, tracked
+# in git). See docs/build.md.
+BUILD_LOG = PACKED_DIR / 'build_log.md'
+BUILD_LOG_HEADER = (
+	'# История сборок\n\n'
+	'Автодополняется `build.py` на каждой релизной сборке (не `--skip-minify`).\n'
+	'Размеры в байтах, разделитель разрядов — пробел. Лимит зипа — 13 312.\n\n'
+	'| дата | bundle.min.js | index.html | game.zip | до лимита |\n'
+	'|---|---:|---:|---:|---:|\n'
+)
 SCRIPT_TAG_RE = re.compile(r'[ \t]*<script src="(js/[^"]+\.js)"></script>\n?')
 SIZE_BUDGET = 13312  # js13k zip limit, bytes
 CLOSURE_COMPILER = 'google-closure-compiler'
@@ -40,6 +51,20 @@ def read(path):
 def write(path, text):
 	path.parent.mkdir(parents=True, exist_ok=True)
 	path.write_text(text, encoding='utf-8')
+
+
+def sep(n):
+	"""12345 -> '12 345', -2383 -> '-2 383' (space thousands separator)."""
+	return f'{n:,}'.replace(',', ' ')
+
+
+def log_build(min_js, out_html, zip_bytes, left):
+	if not BUILD_LOG.exists():
+		BUILD_LOG.write_text(BUILD_LOG_HEADER, encoding='utf-8')
+	stamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M')
+	row = f'| {stamp} | {sep(min_js)} | {sep(out_html)} | {sep(zip_bytes)} | {sep(left)} |\n'
+	with BUILD_LOG.open('a', encoding='utf-8') as f:
+		f.write(row)
 
 
 def concat_sources():
@@ -110,8 +135,10 @@ def main():
 
 	size = PACKED_ZIP.stat().st_size
 	left = SIZE_BUDGET - size
+	log_build(BUNDLE_MIN_JS.stat().st_size, OUT_HTML.stat().st_size, size, left)
 	print(f'wrote {OUT_HTML}')
 	print(f'wrote {PACKED_ZIP} and {DIST_ZIP}: {size} bytes ({left} bytes left of {SIZE_BUDGET})')
+	print(f'appended a row to {BUILD_LOG}')
 	if left < 0:
 		sys.exit('OVER BUDGET')
 
