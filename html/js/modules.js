@@ -38,74 +38,92 @@ const STAT_COUNT = 5
 var shipStats = []
 var shipHp = 500
 
-// Module ids are plain NUMBERS, declared here in order, and the number itself
-// carries what a `viz` field used to: id < 0 = an empty base slot (draw
-// nothing), id >= M_CORV = a corvette (body + gun cube), anything else = a
-// single gun cube. Ship frames (M_S1..) are never a slot's moduleId, they sit
-// past the corvettes. Numeric keys mean MODULES[id] needs no quoting to
-// survive closure ADVANCED (see docs/build.md) - the key can't be mangled.
-const M_WSLOT = -1, M_DSLOT = -2, M_ASLOT = -3
-const M_KIN1 = 0, M_KIN2 = 1, M_KIN3 = 2
-const M_ROC1 = 3, M_ROC2 = 4, M_ROC3 = 5
-const M_PLA1 = 6, M_PLA2 = 7, M_PLA3 = 8
-const M_SHIELD = 9, M_SHIELD2 = 10, M_PD = 11
-const M_CORV = 12 // ids >= this are corvettes (viz = body + gun)
-const M_CORVKIN = 12, M_CORVROC = 13, M_CORVPD = 14
-const M_S1 = 15, M_S2 = 16, M_S3 = 17
+// Module ids are plain NUMBERS, declared one per line in ascending order. The
+// number itself is what a `viz` field used to be (see SlotViz below): a
+// negative id is an empty base slot, ids from the first corvette up are
+// corvettes, everything between is a plain gun. Ship frames sit past the
+// corvettes and are never a slot's moduleId. Numeric keys => MODULES[id]
+// survives closure ADVANCED without quoting (the key can't be mangled).
+const MOD_WEAPON_SLOT      = -1
+const MOD_MODULE_SLOT      = -2
+const MOD_SUPPORT_SLOT     = -3
+const MOD_KINETIC_1        = 0
+const MOD_KINETIC_2        = 1
+const MOD_KINETIC_3        = 2
+const MOD_ROCKET_1         = 3
+const MOD_ROCKET_2         = 4
+const MOD_ROCKET_3         = 5
+const MOD_PLASMA_1         = 6
+const MOD_PLASMA_2         = 7
+const MOD_PLASMA_3         = 8
+const MOD_SHIELD_1         = 9
+const MOD_SHIELD_2         = 10
+const MOD_POINT_DEFENSE    = 11
+const MOD_CORVETTE_KINETIC = 12
+const MOD_CORVETTE_ROCKET  = 13
+const MOD_CORVETTE_PD      = 14
+const MOD_FRAME_SCOUT      = 15
+const MOD_FRAME_WING       = 16
+const MOD_FRAME_BATTLE     = 17
+
+// what CreateShipModelObjects / syncSlotViz draw for a slot's module
+const VIZ_NONE     = 0
+const VIZ_GUN      = 1
+const VIZ_CORVETTE = 2
 
 // fire kinds (were 'kinetic'/'plasma'/'rocket'); index straight into the
-// FIRE_COLORS / SHIP_PROJ_SPEED / SHOOT_SFX arrays.
+// FIRE_COLORS / SHIP_PROJ_SPEED / SHOOT_SFX arrays. Kept short on purpose.
 const F_KIN = 0, F_PLA = 1, F_ROC = 2
 
-var currentShipId = M_S1
+var currentShipId = MOD_FRAME_SCOUT
 
 // projectile / muzzle colour per fire kind (F_KIN/F_PLA/F_ROC), player + enemy.
 const FIRE_COLORS = [[1, 0.9, 0.4], [0.7, 0.35, 1], [1, 0.55, 0.15]]
 
 // id -> { name, cost, to:[id...], schema?, stats?, fireKind?, dmg?, rate?,
 //         intercept?, buildTime? }. No `slot` (was never read) and no `viz`
-// (derived from the id range, see above). Keys are the M_* number constants.
+// (SlotViz derives it from the id). Keys are the MOD_* number constants.
 const MODULES = {
 	// --- weapons ---
-	[M_WSLOT]: { name: 'Weapon slot', cost: 0, to: [M_KIN1, M_ROC1, M_PLA1] },
-	[M_KIN1]: { name: 'Kinetic I', cost: 5, to: [M_KIN2, M_WSLOT], fireKind: F_KIN, dmg: 6, rate: 0.5 },
-	[M_KIN2]: { name: 'Kinetic II', cost: 6, to: [M_KIN3, M_WSLOT], fireKind: F_KIN, dmg: 9, rate: 0.45 },
-	[M_KIN3]: { name: 'Kinetic III', cost: 9, to: [M_WSLOT], fireKind: F_KIN, dmg: 13, rate: 0.4 },
-	[M_ROC1]: { name: 'Rocket I', cost: 5, to: [M_ROC2, M_WSLOT], fireKind: F_ROC, dmg: 16, rate: 1.6 },
-	[M_ROC2]: { name: 'Rocket II', cost: 6, to: [M_ROC3, M_WSLOT], fireKind: F_ROC, dmg: 22, rate: 1.5 },
-	[M_ROC3]: { name: 'Rocket III', cost: 9, to: [M_WSLOT], fireKind: F_ROC, dmg: 30, rate: 1.4 },
-	[M_PLA1]: { name: 'Plasma I', cost: 7, to: [M_PLA2, M_WSLOT], fireKind: F_PLA, dmg: 10, rate: 0.9 },
-	[M_PLA2]: { name: 'Plasma II', cost: 8, to: [M_PLA3, M_WSLOT], fireKind: F_PLA, dmg: 15, rate: 0.85 },
-	[M_PLA3]: { name: 'Plasma III', cost: 11, to: [M_WSLOT], fireKind: F_PLA, dmg: 21, rate: 0.8 },
+	[MOD_WEAPON_SLOT]: { name: 'Weapon slot', cost: 0, to: [MOD_KINETIC_1, MOD_ROCKET_1, MOD_PLASMA_1] },
+	[MOD_KINETIC_1]: { name: 'Kinetic I', cost: 5, to: [MOD_KINETIC_2, MOD_WEAPON_SLOT], fireKind: F_KIN, dmg: 6, rate: 0.5 },
+	[MOD_KINETIC_2]: { name: 'Kinetic II', cost: 6, to: [MOD_KINETIC_3, MOD_WEAPON_SLOT], fireKind: F_KIN, dmg: 9, rate: 0.45 },
+	[MOD_KINETIC_3]: { name: 'Kinetic III', cost: 9, to: [MOD_WEAPON_SLOT], fireKind: F_KIN, dmg: 13, rate: 0.4 },
+	[MOD_ROCKET_1]: { name: 'Rocket I', cost: 5, to: [MOD_ROCKET_2, MOD_WEAPON_SLOT], fireKind: F_ROC, dmg: 16, rate: 1.6 },
+	[MOD_ROCKET_2]: { name: 'Rocket II', cost: 6, to: [MOD_ROCKET_3, MOD_WEAPON_SLOT], fireKind: F_ROC, dmg: 22, rate: 1.5 },
+	[MOD_ROCKET_3]: { name: 'Rocket III', cost: 9, to: [MOD_WEAPON_SLOT], fireKind: F_ROC, dmg: 30, rate: 1.4 },
+	[MOD_PLASMA_1]: { name: 'Plasma I', cost: 7, to: [MOD_PLASMA_2, MOD_WEAPON_SLOT], fireKind: F_PLA, dmg: 10, rate: 0.9 },
+	[MOD_PLASMA_2]: { name: 'Plasma II', cost: 8, to: [MOD_PLASMA_3, MOD_WEAPON_SLOT], fireKind: F_PLA, dmg: 15, rate: 0.85 },
+	[MOD_PLASMA_3]: { name: 'Plasma III', cost: 11, to: [MOD_WEAPON_SLOT], fireKind: F_PLA, dmg: 21, rate: 0.8 },
 
 	// --- modules (PD + shields) ---
-	[M_DSLOT]: { name: 'Module slot', cost: 0, to: [M_SHIELD, M_PD] },
-	[M_SHIELD]: { name: 'Shield', cost: 6, to: [M_SHIELD2, M_DSLOT], stats: { [STAT_SHIELD]: 150 } },
-	[M_SHIELD2]: { name: 'Shield II', cost: 9, to: [M_DSLOT], stats: { [STAT_SHIELD]: 280 } },
-	[M_PD]: { name: 'Point Defense', cost: 6, to: [M_DSLOT], intercept: 0.35 },
+	[MOD_MODULE_SLOT]: { name: 'Module slot', cost: 0, to: [MOD_SHIELD_1, MOD_POINT_DEFENSE] },
+	[MOD_SHIELD_1]: { name: 'Shield', cost: 6, to: [MOD_SHIELD_2, MOD_MODULE_SLOT], stats: { [STAT_SHIELD]: 150 } },
+	[MOD_SHIELD_2]: { name: 'Shield II', cost: 9, to: [MOD_MODULE_SLOT], stats: { [STAT_SHIELD]: 280 } },
+	[MOD_POINT_DEFENSE]: { name: 'Point Defense', cost: 6, to: [MOD_MODULE_SLOT], intercept: 0.35 },
 
 	// --- support ships (corvettes) ---
-	[M_ASLOT]: { name: 'Support slot', cost: 0, to: [M_CORVKIN, M_CORVROC, M_CORVPD] },
-	[M_CORVKIN]: { name: 'Kinetic Corvette', cost: 12, buildTime: 3.5, to: [M_ASLOT], fireKind: F_KIN, dmg: 8, rate: 0.5 },
-	[M_CORVROC]: { name: 'Rocket Corvette', cost: 14, buildTime: 3.5, to: [M_ASLOT], fireKind: F_ROC, dmg: 20, rate: 1.5 },
-	[M_CORVPD]: { name: 'PD Corvette', cost: 12, buildTime: 3.5, to: [M_ASLOT], intercept: 0.3 },
+	[MOD_SUPPORT_SLOT]: { name: 'Support slot', cost: 0, to: [MOD_CORVETTE_KINETIC, MOD_CORVETTE_ROCKET, MOD_CORVETTE_PD] },
+	[MOD_CORVETTE_KINETIC]: { name: 'Kinetic Corvette', cost: 12, buildTime: 3.5, to: [MOD_SUPPORT_SLOT], fireKind: F_KIN, dmg: 8, rate: 0.5 },
+	[MOD_CORVETTE_ROCKET]: { name: 'Rocket Corvette', cost: 14, buildTime: 3.5, to: [MOD_SUPPORT_SLOT], fireKind: F_ROC, dmg: 20, rate: 1.5 },
+	[MOD_CORVETTE_PD]: { name: 'PD Corvette', cost: 12, buildTime: 3.5, to: [MOD_SUPPORT_SLOT], intercept: 0.3 },
 
 	// --- ship frames (central slot). schema + stat baseline. col->x, row->z,
 	// row 0 = nose (-z, forward). ---
-	[M_S1]: {
-		name: 'Scout Frame', cost: 0, to: [M_S2], buildTime: 5,
+	[MOD_FRAME_SCOUT]: {
+		name: 'Scout Frame', cost: 0, to: [MOD_FRAME_WING], buildTime: 5,
 		schema: '3.#.MWM###.#.|1474',
 		stats: { [STAT_HP]: 500, [STAT_WEAPONS]: 1, [STAT_MODULES]: 2, [STAT_SUPPORTS]: 2 }
 	},
-	[M_S2]: {
+	[MOD_FRAME_WING]: {
 		// symmetric arrow: 3 spine guns, 4 wing-root modules, 2 support slots on the sides.
-		name: 'Wing Frame', cost: 30, to: [M_S1, M_S3], buildTime: 5,
+		name: 'Wing Frame', cost: 30, to: [MOD_FRAME_SCOUT, MOD_FRAME_BATTLE], buildTime: 5,
 		schema: '5..W..M###M##W##M###M.#W#.|0484',
 		stats: { [STAT_HP]: 900, [STAT_WEAPONS]: 3, [STAT_MODULES]: 3, [STAT_SUPPORTS]: 2 }
 	},
-	[M_S3]: {
+	[MOD_FRAME_BATTLE]: {
 		// 5 guns (2 nose + spine + 2 tips), 4 wing modules, 3 support (2 sides + 1 rear).
-		name: 'Battle Frame', cost: 60, to: [M_S2], buildTime: 5,
+		name: 'Battle Frame', cost: 60, to: [MOD_FRAME_WING], buildTime: 5,
 		schema: '5.W.W.M#W#MW###WM###M.###.|048448',
 		stats: { [STAT_HP]: 1400, [STAT_WEAPONS]: 5, [STAT_MODULES]: 4, [STAT_SUPPORTS]: 3 }
 	}
@@ -151,9 +169,9 @@ function rebuildSlots() {
 		const kept = prev.filter(s => s.type === type)
 		return list.map((pos, k) => ({ type, pos, base, moduleId: kept[k] ? kept[k].moduleId : base }))
 	}
-	shipSlots = mk(dec.weapons, SLOT_WEAPON, M_WSLOT)
-		.concat(mk(dec.modules, SLOT_DEFENSE, M_DSLOT))
-		.concat(mk(dec.supports, SLOT_AUX, M_ASLOT))
+	shipSlots = mk(dec.weapons, SLOT_WEAPON, MOD_WEAPON_SLOT)
+		.concat(mk(dec.modules, SLOT_DEFENSE, MOD_MODULE_SLOT))
+		.concat(mk(dec.supports, SLOT_AUX, MOD_SUPPORT_SLOT))
 }
 
 function RebuildShipStats() {
@@ -161,12 +179,12 @@ function RebuildShipStats() {
 	for (let i = 0; i < STAT_COUNT; i++) shipStats[i] = base[i] || 0
 	for (const s of shipSlots) {
 		const st = MODULES[s.moduleId].stats
-		if (st) for (const k in st) shipStats[k] += st[k]
+		if (st) for (const k in st) shipStats[+k] += st[k]
 	}
 }
 
 function ResetShip() {
-	currentShipId = M_S1
+	currentShipId = MOD_FRAME_SCOUT
 	shipSlots = []
 	builds = []
 	rebuildSlots()
@@ -286,10 +304,11 @@ function shipVizColor(m) {
 	return m.fireKind != null ? FIRE_COLORS[m.fireKind] : m.intercept ? [0.9, 0.9, 0.95] : [0.4, 0.85, 1]
 }
 
-// What to draw for a module in a slot, from its id range (replaces `viz`):
-// 0 = nothing (empty base slot), 1 = one gun cube, 2 = a corvette (body + gun).
+// What to draw for a module in a slot, compared straight against the id
+// constants (replaces the old `viz` field): nothing for an empty base slot,
+// a corvette from the first corvette id up, a gun for everything in between.
 function SlotViz(id) {
-	return id < 0 ? 0 : id >= M_CORV ? 2 : 1
+	return id < 0 ? VIZ_NONE : id >= MOD_CORVETTE_KINETIC ? VIZ_CORVETTE : VIZ_GUN
 }
 
 // The player's ship as a flat array of static cubes (hull cells + active
@@ -305,9 +324,9 @@ function CreateShipModelObjects() {
 		if (ActiveSlots(shipSlots[i].type).indexOf(i) === -1) continue
 		const s = shipSlots[i]
 		const vk = SlotViz(s.moduleId)
-		if (!vk) continue
+		if (vk === VIZ_NONE) continue
 		const m = MODULES[s.moduleId]
-		if (vk === 2) {
+		if (vk === VIZ_CORVETTE) {
 			out.push(CreateCubeObject(V3(s.pos[0], 0, s.pos[2]), 0.5, [0.7, 0.72, 0.8]))
 			out.push(CreateCubeObject(V3(s.pos[0], 0.42, s.pos[2]), 0.22, shipVizColor(m)))
 		} else {

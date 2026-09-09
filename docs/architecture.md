@@ -290,23 +290,25 @@ architecture.md фиксирует только форму (состояния/�
 Тот же декодер обслуживает и вражеские корабли.
 
 **Граф модулей `MODULES`** — словарь `id → { name, cost, to:[id...], schema?, stats?,
-...боевые поля }`. **`id` — число** (константы `M_*` в `modules.js`, объявлены по порядку),
-и само число заменяет прежнее поле `viz`: `id < 0` — пустой базовый слот (ничего не рисуем),
-`id >= M_CORV` — корвет (корпус + пушка), иначе — одна пушка-кубик. Фреймы (`M_S1..`) лежат
+...боевые поля }`. **`id` — число** (константы `MOD_*` в `modules.js`, по одной на строку в
+порядке возрастания), и само число заменяет прежнее поле `viz` (функция `SlotViz(id)` →
+`VIZ_NONE`/`VIZ_GUN`/`VIZ_CORVETTE` прямым сравнением: `id < 0` — пустой базовый слот,
+`id >= MOD_CORVETTE_KINETIC` — корвет, между — пушка). Фреймы (`MOD_FRAME_*` = 15..17) лежат
 за корветами и никогда не бывают `moduleId` слота. Числовой ключ closure не манглит →
 `MODULES[id]` без кавычек (см. [build.md](build.md)); поля `slot`/`viz` убраны (`slot` не
-читался, `viz` выводится из диапазона). `to` — рёбра: во что переделать (за `cost` металла;
-`cost 0` — базовый/пустой слот). Четыре непересекающихся графа:
+читался). `to` — рёбра: во что переделать (за `cost` металла; `cost 0` — базовый/пустой
+слот). Четыре непересекающихся графа:
 
-- фреймы `M_S1 → M_S2 → M_S3` (`schema` + базовые `stats`); `BuildShip(id)` меняет
-  `currentShipId` и зовёт `rebuildSlots()`.
-- `SLOT_WEAPON` — `M_WSLOT → {KIN,ROC,PLA}1 → …2 → …3`, разборка сразу в `M_WSLOT`.
-- `SLOT_DEFENSE` («модули») — `M_DSLOT → {M_SHIELD → M_SHIELD2, M_PD}`.
-- `SLOT_AUX` («поддержка») — `M_ASLOT → {M_CORVKIN, M_CORVROC, M_CORVPD}`.
+- фреймы `MOD_FRAME_SCOUT → _WING → _BATTLE` (`schema` + базовые `stats`); `BuildShip(id)`
+  меняет `currentShipId` и зовёт `rebuildSlots()`.
+- `SLOT_WEAPON` — `MOD_WEAPON_SLOT → MOD_{KINETIC,ROCKET,PLASMA}_1 → _2 → _3`, разборка сразу
+  в `MOD_WEAPON_SLOT`.
+- `SLOT_DEFENSE` («модули») — `MOD_MODULE_SLOT → {MOD_SHIELD_1 → _2, MOD_POINT_DEFENSE}`.
+- `SLOT_AUX` («поддержка») — `MOD_SUPPORT_SLOT → MOD_CORVETTE_{KINETIC,ROCKET,PD}`.
 
-Тип урона (`fireKind` на модуле и на оружии врага) — тоже число: `F_KIN`/`F_PLA`/`F_ROC`
-(0/1/2), индекс в массивы `FIRE_COLORS` / `SHIP_PROJ_SPEED` / `SHOOT_SFX`. Проверять наличие —
-`fireKind != null` (0 ложно).
+Тип урона (`fireKind` на модуле и на оружии врага) — тоже число, но короткое: `F_KIN`/
+`F_PLA`/`F_ROC` (0/1/2), индекс в массивы `FIRE_COLORS` / `SHIP_PROJ_SPEED` / `SHOOT_SFX`.
+Проверять наличие — `fireKind != null` (0 ложно).
 
 **Статы `shipStats`** — плоский массив (как `res`), индексируемый `STAT_HP` / `STAT_WEAPONS` /
 `STAT_MODULES` / `STAT_SUPPORTS` / `STAT_SHIELD`. `RebuildShipStats()` = базовые `stats`
@@ -334,7 +336,7 @@ HP + кнопками, см. [ui.md](ui.md)), `SlotTargets(i)` / `ShipTargets()`
 | `include.js`                | **первый** в конкатенации: `Math.*`-алиасы (`Mr`/`Ms`/…), числовые `GL_*` энумы (спец Khronos, хардкод — см. [optimization.md](optimization.md)), `F32()`, и `let gl` — глобаль WebGL-контекста (declaration в первом файле видна всем; значение приходит из `InitGL`) |
 | `gl.js`                    | инициализация `gl` (`InitGL` присваивает глобаль), компиляция шейдеров, vec3/mat4 математика, `UploadMesh`. Фабрики больше **не** принимают `gl` первым аргументом — читают глобаль |
 | `sound.js`                  | звук: свой мини-синт на Web Audio (`Tone`/`Noise`), пресеты `Sfx`/`SHOOT_SFX`, тикающий эмбиент (`MusicStart`/`MusicStop`), `ToggleMute`; см. [sound.md](sound.md) |
-| `geometry.js`               | генерация меш-данных: UV-сфера/кольцо-аннулюс по коду; `MeshGen()` — построитель квадов (через матрицу, `xf`/`quad`/`str`, `build()` = плоские нормали), через него куб (`CUBE_QUADS`), кольцо кубов, строково-закодированный меш — см. [meshformat.md](meshformat.md) |
+| `geometry.js`               | генерация меш-данных: UV-сфера/кольцо-аннулюс по коду; `MeshGen()` — копит точки (`addPoint`/`quad`/`str`), всегда через матрицу `xf` (по умолчанию — identity из `Mat4TranslateScale()`), `build()` режет `pts` по 4 в квад + плоская нормаль; через него куб (`CUBE_QUADS`), кольцо кубов, строково-закодированный меш — см. [meshformat.md](meshformat.md) |
 | `texture.js`                | процедурные текстуры: value-шум и градиенты-рампы из строк, см. [texture.md](texture.md) |
 | `input.js`                  | сырые данные пойнтера за кадр (см. [camera.md](camera.md)) — не трогает камеру напрямую |
 | `camera.js`                 | орбитальная камера: position/offset/rotMat, ограничители, view/projection, луч для пикинга |

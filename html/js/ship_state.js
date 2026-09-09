@@ -16,8 +16,7 @@ const SHIP_ENEMY_DIST = 6
 const SHIP_PROJ_SPEED = [22, 16, 9] // indexed by fire kind F_KIN/F_PLA/F_ROC
 const SHIP_EXPL_DUR = 0.35
 
-function CreateShipState(opts) {
-	opts = opts || {}
+function CreateShipState(opts = {}) {
 	let ctxRef = null
 	let live = []          // every 3D object this state owns
 	let hullCubes = []
@@ -69,13 +68,13 @@ function CreateShipState(opts) {
 		const p = shipSlots[i].pos
 		const m = MODULES[shipSlots[i].moduleId]
 		const vk = SlotViz(shipSlots[i].moduleId)
-		if (vk === 1) {
+		if (vk === VIZ_GUN) {
 			const g = CreateCubeObject(V3(p[0], 0.45, p[2]), 0.14, shipVizColor(m))
 			g.radius = 0.3
 			g.onClick = () => selectSlot(i)
 			slotViz[i].push(g)
 			addLive(ctx, g)
-		} else if (vk === 2) {
+		} else if (vk === VIZ_CORVETTE) {
 			const body = CreateCubeObject(V3(p[0], 0, p[2]), 0.25, [0.7, 0.72, 0.8])
 			const gun = CreateCubeObject(V3(p[0], 0.42, p[2]), 0.11, shipVizColor(m))
 			gun.radius = 0.35

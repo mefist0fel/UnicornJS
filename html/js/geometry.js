@@ -5,23 +5,18 @@
 
 // ---- mesh builder ----
 //
-// Collect quads (4 points), optionally through a transform matrix (xf), then
-// build() emits { positions, normals, indices }: faces in add order
-// (0,1,2)+(0,2,3), one FLAT normal per quad from its own two edges. Every
-// cube-ish mesh below goes through this - one place for the boilerplate, one
-// copy of the cube face table.
+// Push points (4 per quad, via addPoint / quad / str) through the current
+// transform matrix, then build() emits { positions, normals, indices }: faces
+// in add order (0,1,2)+(0,2,3), one FLAT normal per quad from its own two
+// edges. Every cube-ish mesh below goes through this - one place for the
+// boilerplate, one copy of the cube face table.
 function MeshGen() {
-	// one entry per quad: [p0, p1, p2, p3], each pN a live [x,y,z] (kept as
-	// points, not flattened - build() only reads them, and the shared cube
-	// tables are never mutated).
-	const quads = []
-	let mat = 0
+	const pts = []                  // flat list of [x,y,z], 4 per quad
+	let mat = Mat4TranslateScale()  // identity until xf() sets one
 	const g = {
 		xf(m) { mat = m; return g },
-		quad(a, b, c, d) {
-			quads.push([a, b, c, d].map(p => mat ? Mat4MulPoint(mat, p) : p))
-			return g
-		},
+		addPoint(p) { pts.push(Mat4MulPoint(mat, p)); return g },
+		quad(a, b, c, d) { return g.addPoint(a).addPoint(b).addPoint(c).addPoint(d) },
 		// decode a mesh string (see docs/meshformat.md): 3 chars = a point,
 		// 4 points = a quad. Added through the current transform like any quad.
 		str(s) {
@@ -34,10 +29,10 @@ function MeshGen() {
 		},
 		build() {
 			const positions = [], normals = [], indices = []
-			for (let q = 0; q < quads.length; q++) {
-				const [p0, p1, p2, p3] = quads[q]
+			for (let idx = 4; idx <= pts.length; idx += 4) {
+				const p0 = pts[idx - 4], p1 = pts[idx - 3], p2 = pts[idx - 2], p3 = pts[idx - 1]
 				const n = NormV3(CrossV3(SubV3(p1, p0), SubV3(p2, p0)))
-				const base = q * 4
+				const base = idx - 4
 				for (const p of [p0, p1, p2, p3]) {
 					positions.push(p[0], p[1], p[2])
 					normals.push(n[0], n[1], n[2])

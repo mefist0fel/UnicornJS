@@ -163,8 +163,9 @@ function Mat4MulPoint(m, v) {
 // every call site; battle_state's laser beam is the one exception that
 // needs a stretched box (long on X, thin on Y/Z) and passes a [sx,sy,sz]
 // array instead - `.length` is enough to tell the two apart since numbers
-// don't have one.
-function Mat4TranslateScale(position, scale) {
+// don't have one. Defaults (offset 0, scale 1) give the identity matrix, so
+// Mat4TranslateScale() is the mesh builder's "no transform yet" seed.
+function Mat4TranslateScale(position = [0, 0, 0], scale = 1) {
 	const sx = scale.length ? scale[0] : scale
 	const sy = scale.length ? scale[1] : scale
 	const sz = scale.length ? scale[2] : scale

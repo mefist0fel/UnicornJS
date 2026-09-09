@@ -47,7 +47,7 @@ function InitObjectRenderer() {
 // caller can animate it after creation - battle_state's hit-impact "explode"
 // effect (grow then shrink over its lifetime) is the one thing that needs
 // this; every other object just leaves it untouched after creation.
-function CreateMeshObject(p, mesh, scale, color, emissive) {
+function CreateMeshObject(p, mesh, scale, color, emissive = 0) {
 	const buf = UploadMesh(mesh)
 	return {
 		p, // position
@@ -77,8 +77,8 @@ function CreateMeshObject(p, mesh, scale, color, emissive) {
 	}
 }
 
-function CreateSphereObject(position, radius, color, latBands = 12, lonBands = 16, emissive) {
-	const o = CreateMeshObject(position, GenSphereMesh(latBands, lonBands), radius, color, emissive)
+function CreateSphereObject(position, radius, color, latBands = 12, lonBands = 16) {
+	const o = CreateMeshObject(position, GenSphereMesh(latBands, lonBands), radius, color)
 	o.radius = radius // bounding radius, also used for picking
 	return o
 }
