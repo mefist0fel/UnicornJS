@@ -1,7 +1,8 @@
 # Меши в строке
 
 Хак: меш можно записать одной короткой JS-строкой вместо массива чисел. Реализация —
-`geometry.js` (`MeshCharVal`, `MeshEncChar`, `DecodeMeshString`, `CUBE_MESH`), это описание —
+`geometry.js` (`MeshCharVal`, `MeshEncChar`, `DecodeMeshString` — тонкая обёртка над
+`MeshGen().str(s).build()`, `CUBE_MESH`), это описание —
 более подробная, отдельно читаемая версия комментариев из того же файла.
 
 ## Зачем

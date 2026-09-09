@@ -148,6 +148,16 @@ function Mat4MulDir(m, v) {
 	]
 }
 
+// Transforms a point (w=1, translation applied) by a mat4. Used by the mesh
+// builder (geometry.js) to bake a quad's transform in as it's added.
+function Mat4MulPoint(m, v) {
+	return [
+		m[0] * v[0] + m[4] * v[1] + m[8] * v[2] + m[12],
+		m[1] * v[0] + m[5] * v[1] + m[9] * v[2] + m[13],
+		m[2] * v[0] + m[6] * v[1] + m[10] * v[2] + m[14]
+	]
+}
+
 // Objects never rotate, so a plain translate+scale model matrix is enough -
 // no general TRS compose needed. `scale` is a number (uniform) in almost
 // every call site; battle_state's laser beam is the one exception that

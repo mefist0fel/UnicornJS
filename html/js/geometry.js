@@ -3,6 +3,74 @@
 // origin; objects.js scales it via position+radius when uploading/drawing.
 // See docs/architecture.md.
 
+// ---- mesh builder ----
+//
+// Collect quads (4 points), optionally through a transform matrix (xf), then
+// build() emits { positions, normals, indices }: faces in add order
+// (0,1,2)+(0,2,3), one FLAT normal per quad from its own two edges. Every
+// cube-ish mesh below goes through this - one place for the boilerplate, one
+// copy of the cube face table.
+function MeshGen() {
+	const pts = [] // flat xyz; every 12 numbers = one quad
+	let mat = 0
+	const g = {
+		xf(m) { mat = m; return g },
+		quad(a, b, c, d) {
+			for (const p of [a, b, c, d]) {
+				const q = mat ? Mat4MulPoint(mat, p) : p
+				pts.push(q[0], q[1], q[2])
+			}
+			return g
+		},
+		// decode a mesh string (see docs/meshformat.md): 3 chars = a point,
+		// 4 points = a quad. Added through the current transform like any quad.
+		str(s) {
+			for (let i = 0; i < s.length; i += 12) g.quad(
+				[decP(s, i), decP(s, i + 1), decP(s, i + 2)],
+				[decP(s, i + 3), decP(s, i + 4), decP(s, i + 5)],
+				[decP(s, i + 6), decP(s, i + 7), decP(s, i + 8)],
+				[decP(s, i + 9), decP(s, i + 10), decP(s, i + 11)])
+			return g
+		},
+		build() {
+			const positions = [], normals = [], indices = []
+			for (let q = 0; q < pts.length; q += 12) {
+				const p0 = [pts[q], pts[q + 1], pts[q + 2]]
+				const p1 = [pts[q + 3], pts[q + 4], pts[q + 5]]
+				const p2 = [pts[q + 6], pts[q + 7], pts[q + 8]]
+				const p3 = [pts[q + 9], pts[q + 10], pts[q + 11]]
+				const n = NormV3(CrossV3(SubV3(p1, p0), SubV3(p2, p0)))
+				const base = positions.length / 3
+				for (const p of [p0, p1, p2, p3]) {
+					positions.push(p[0], p[1], p[2])
+					normals.push(n[0], n[1], n[2])
+				}
+				indices.push(base, base + 1, base + 2, base, base + 2, base + 3)
+			}
+			return { positions, normals, indices }
+		}
+	}
+	return g
+}
+
+// signed coord in -1..1 for char i of a mesh string (MeshCharVal is below).
+function decP(s, i) { return (MeshCharVal(s, i) - 46) / 46 }
+
+// One unit cube: 6 quads, each wound CCW seen from outside, corners at +-0.5.
+// The single source of truth for "a cube" - GenCubeMesh and GenRingOfCubes
+// both stamp this through MeshGen.
+const CUBE_QUADS = [
+	[[-.5, .5, .5], [.5, .5, .5], [.5, .5, -.5], [-.5, .5, -.5]],     // +Y
+	[[-.5, -.5, -.5], [.5, -.5, -.5], [.5, -.5, .5], [-.5, -.5, .5]], // -Y
+	[[-.5, -.5, .5], [.5, -.5, .5], [.5, .5, .5], [-.5, .5, .5]],     // +Z
+	[[.5, -.5, -.5], [-.5, -.5, -.5], [-.5, .5, -.5], [.5, .5, -.5]], // -Z
+	[[.5, -.5, .5], [.5, -.5, -.5], [.5, .5, -.5], [.5, .5, .5]],     // +X
+	[[-.5, -.5, -.5], [-.5, -.5, .5], [-.5, .5, .5], [-.5, .5, -.5]]  // -X
+]
+function addCube(g) {
+	for (const q of CUBE_QUADS) g.quad(q[0], q[1], q[2], q[3])
+}
+
 function GenSphereMesh(latBands = 12, lonBands = 16) {
 	const positions = []
 	const normals = []
@@ -28,29 +96,12 @@ function GenSphereMesh(latBands = 12, lonBands = 16) {
 	return { positions, normals, indices }
 }
 
-// 24 verts (4 per face) so each face gets a flat, non-interpolated normal.
+// Unit cube, ±0.5 corners, 24 verts (flat per-face normals). Same output as
+// before; the face table now lives in CUBE_QUADS.
 function GenCubeMesh() {
-	const faces = [
-		[[0, 1, 0], [-1, 1, 1, 1, 1, 1, 1, 1, -1, -1, 1, -1]],   // +Y
-		[[0, -1, 0], [-1, -1, -1, 1, -1, -1, 1, -1, 1, -1, -1, 1]], // -Y
-		[[0, 0, 1], [-1, -1, 1, 1, -1, 1, 1, 1, 1, -1, 1, 1]],    // +Z
-		[[0, 0, -1], [1, -1, -1, -1, -1, -1, -1, 1, -1, 1, 1, -1]], // -Z
-		[[1, 0, 0], [1, -1, 1, 1, -1, -1, 1, 1, -1, 1, 1, 1]],    // +X
-		[[-1, 0, 0], [-1, -1, -1, -1, -1, 1, -1, 1, 1, -1, 1, -1]] // -X
-	]
-	const positions = []
-	const normals = []
-	const indices = []
-	for (let f = 0; f < faces.length; f++) {
-		const [n, verts] = faces[f]
-		const base = positions.length / 3
-		for (let v = 0; v < 4; v++) {
-			positions.push(verts[v * 3] * 0.5, verts[v * 3 + 1] * 0.5, verts[v * 3 + 2] * 0.5)
-			normals.push(n[0], n[1], n[2])
-		}
-		indices.push(base, base + 1, base + 2, base, base + 2, base + 3)
-	}
-	return { positions, normals, indices }
+	const g = MeshGen()
+	addCube(g)
+	return g.build()
 }
 
 // Flat annulus in the XZ plane, unit outer radius, used as an orbit line -
@@ -76,37 +127,18 @@ function GenRingMesh(segments = 40, thickness = 0.008) {
 	return { positions, normals, indices }
 }
 
-// `seg` little cubes evenly on a circle of `radius` in the XY plane (so the
-// ring faces down +Z, the hyperjump tunnel axis). Baked into one mesh - a
-// whole ring is a single object/draw-call/colour (hyperjump_state moves and
-// recolours rows of these). Cube corners at +-size.
+// `seg` little cubes (half-extent `size`) evenly on a circle of `radius` in the
+// XY plane (so the ring faces down +Z, the hyperjump tunnel axis). Baked into
+// one mesh - a whole ring is a single object/draw-call/colour (hyperjump_state
+// moves and recolours rows of these).
 function GenRingOfCubes(seg, radius, size) {
-	const positions = []
-	const normals = []
-	const indices = []
-	// unit cube corners, CCW per face as seen from outside (same winding as GenCubeMesh)
-	const faces = [
-		[[0, 0, 1], [-1, -1, 1, 1, -1, 1, 1, 1, 1, -1, 1, 1]],
-		[[0, 0, -1], [1, -1, -1, -1, -1, -1, -1, 1, -1, 1, 1, -1]],
-		[[1, 0, 0], [1, -1, 1, 1, -1, -1, 1, 1, -1, 1, 1, 1]],
-		[[-1, 0, 0], [-1, -1, -1, -1, -1, 1, -1, 1, 1, -1, 1, -1]],
-		[[0, 1, 0], [-1, 1, 1, 1, 1, 1, 1, 1, -1, -1, 1, -1]],
-		[[0, -1, 0], [-1, -1, -1, 1, -1, -1, 1, -1, 1, -1, -1, 1]]
-	]
+	const g = MeshGen()
 	for (let i = 0; i < seg; i++) {
 		const a = i * PI * 2 / seg
-		const cx = Mc(a) * radius, cy = Ms(a) * radius
-		for (let f = 0; f < 6; f++) {
-			const n = faces[f][0], v = faces[f][1]
-			const base = positions.length / 3
-			for (let k = 0; k < 4; k++) {
-				positions.push(cx + v[k * 3] * size, cy + v[k * 3 + 1] * size, v[k * 3 + 2] * size)
-				normals.push(n[0], n[1], n[2])
-			}
-			indices.push(base, base + 1, base + 2, base, base + 2, base + 3)
-		}
+		g.xf(Mat4TranslateScale([Mc(a) * radius, Ms(a) * radius, 0], size * 2))
+		addCube(g)
 	}
-	return { positions, normals, indices }
+	return g.build()
 }
 
 // ---- string-encoded meshes / data ----
@@ -146,37 +178,14 @@ function MeshEncChar(n) {
 	return String.fromCharCode(c)
 }
 
-// 3 chars = 1 point (X,Y,Z). 4 points (12 chars) = 1 quad face, split
-// (0,1,2)+(0,2,3) - the 4 points must be wound CCW seen from outside, like a
-// hand-written GenCubeMesh() face. Normals aren't stored: computed once per
-// face from its own two edges (flat shading, same as GenCubeMesh).
+// 3 chars = 1 point (X,Y,Z), 4 points = 1 quad, CCW from outside - see
+// docs/meshformat.md. Just feeds the string to MeshGen (flat per-face normals).
 function DecodeMeshString(s) {
-	const positions = []
-	const normals = []
-	const indices = []
-	const points = []
-	for (let i = 0; i < s.length; i += 3) {
-		points.push([
-			(MeshCharVal(s, i) - 46) / 46,
-			(MeshCharVal(s, i + 1) - 46) / 46,
-			(MeshCharVal(s, i + 2) - 46) / 46
-		])
-	}
-	for (let q = 0; q < points.length; q += 4) {
-		const [p0, p1, p2, p3] = [points[q], points[q + 1], points[q + 2], points[q + 3]]
-		const n = NormV3(CrossV3(SubV3(p1, p0), SubV3(p2, p0)))
-		const base = positions.length / 3
-		for (const p of [p0, p1, p2, p3]) {
-			positions.push(p[0], p[1], p[2])
-			normals.push(n[0], n[1], n[2])
-		}
-		indices.push(base, base + 1, base + 2, base, base + 2, base + 3)
-	}
-	return { positions, normals, indices }
+	return MeshGen().str(s).build()
 }
 
-// One unit cube (6 faces x 4 verts), regenerated offline with MeshEncChar
-// from the same corner coordinates as GenCubeMesh() - see docs/meshformat.md.
+// One unit cube (±1 corners), regenerated offline with MeshEncChar from the
+// same corner order as CUBE_QUADS - see docs/meshformat.md.
 const CUBE_MESH = ' ~~~~~~~  ~    ~  ~ ~  ~  ~~ ~~~~ ~~~      ~ ~~ ~ ~~  ~~ ~~~     ~ ~~ ~ '
 
 function GenEncodedCubeMesh() {

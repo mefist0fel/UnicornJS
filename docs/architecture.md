@@ -325,7 +325,7 @@ HP + кнопками, см. [ui.md](ui.md)), `SlotTargets(i)` / `ShipTargets()`
 | `include.js`                | **первый** в конкатенации: `Math.*`-алиасы (`Mr`/`Ms`/…), числовые `GL_*` энумы (спец Khronos, хардкод — см. [optimization.md](optimization.md)), `F32()`, и `let gl` — глобаль WebGL-контекста (declaration в первом файле видна всем; значение приходит из `InitGL`) |
 | `gl.js`                    | инициализация `gl` (`InitGL` присваивает глобаль), компиляция шейдеров, vec3/mat4 математика, `UploadMesh`. Фабрики больше **не** принимают `gl` первым аргументом — читают глобаль |
 | `sound.js`                  | звук: свой мини-синт на Web Audio (`Tone`/`Noise`), пресеты `Sfx`/`SHOOT_SFX`, тикающий эмбиент (`MusicStart`/`MusicStop`), `ToggleMute`; см. [sound.md](sound.md) |
-| `geometry.js`               | генерация меш-данных: сфера/кубик/кольцо/`GenRingOfCubes` по коду и строково-закодированные меши, см. [meshformat.md](meshformat.md) |
+| `geometry.js`               | генерация меш-данных: UV-сфера/кольцо-аннулюс по коду; `MeshGen()` — построитель квадов (через матрицу, `xf`/`quad`/`str`, `build()` = плоские нормали), через него куб (`CUBE_QUADS`), кольцо кубов, строково-закодированный меш — см. [meshformat.md](meshformat.md) |
 | `texture.js`                | процедурные текстуры: value-шум и градиенты-рампы из строк, см. [texture.md](texture.md) |
 | `input.js`                  | сырые данные пойнтера за кадр (см. [camera.md](camera.md)) — не трогает камеру напрямую |
 | `camera.js`                 | орбитальная камера: position/offset/rotMat, ограничители, view/projection, луч для пикинга |
