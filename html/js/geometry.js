@@ -59,6 +59,12 @@ function decP(s, i) { return (MeshCharVal(s, i) - 46) / 46 }
 // One unit cube: 6 quads, each wound CCW seen from outside, corners at +-0.5.
 // The single source of truth for "a cube" - GenCubeMesh and GenRingOfCubes
 // both stamp this through MeshGen.
+//
+// Tried naming the 8 corners as shared consts and referencing them here: closure
+// keeps the consts (doesn't inline) so the minified bundle shrinks ~18 B, but
+// the zip grew +33 B - the 24 inline `[-.5,.5,.5]`-style literals are a regular
+// table that deflate already crushes, and `[ib,hb,Za,eb]` refs are higher
+// entropy. Left inline. See docs/optimization.md.
 const CUBE_QUADS = [
 	[[-.5, .5, .5], [.5, .5, .5], [.5, .5, -.5], [-.5, .5, -.5]],     // +Y
 	[[-.5, -.5, -.5], [.5, -.5, -.5], [.5, -.5, .5], [-.5, -.5, .5]], // -Y

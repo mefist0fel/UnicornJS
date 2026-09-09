@@ -1,17 +1,15 @@
-// Sound & music - a tiny hand-rolled Web Audio synth. One module covers both
-// SFX and the ambient track (no tracker lib, no jsfxr blob - the js13k rule is
-// "write it or generate it"). Everything is oscillator + gain-envelope +
-// noise-buffer, in the spirit of ZzFX but only as featured as this game needs.
-// See docs/sound.md.
+// Sound - a tiny hand-rolled Web Audio SFX synth (no tracker lib, no jsfxr blob
+// - the js13k rule is "write it or generate it"). Every effect is one call to
+// Tone (enveloped oscillator) and/or Noise (filtered noise burst); both take
+// plain positional args, no options object. See docs/sound.md. The ambient
+// music track was cut for size (see below).
 //
 // AudioContext starts suspended until a user gesture: getAC() lazily builds it,
 // the menu's Play button (a real click) resumes it, and a one-shot pointerdown
-// listener is the backstop. Music can be "started" before that - its nodes just
-// play into the suspended graph silently until the context resumes.
+// listener is the backstop.
 
 var _ac = null
 var _master = null   // everything routes here; mute = _master.gain 0
-var _musicBus = null // music sits under its own gain, quieter than SFX
 var _muted = false
 
 function getAC() {
@@ -28,9 +26,6 @@ function getAC() {
 	_master = _ac.createGain()
 	_master.gain.value = _muted ? 0 : 0.6
 	_master.connect(_ac.destination)
-	_musicBus = _ac.createGain()
-	_musicBus.gain.value = 0.7
-	_musicBus.connect(_master)
 	return _ac
 }
 
@@ -42,69 +37,56 @@ function ToggleMute() {
 }
 
 // ---- primitives ----
+//
+// Both take positional args (was an options object with a dozen `x==null?d:x`
+// defaults - all the rarely-touched knobs, attack / sustain / start-time / bus,
+// went away with the music). Attack and the decay "knee" level are fixed now.
 
-// A single enveloped oscillator blip. `o`: { type, freq, freqEnd, attack,
-// decay, sustain, sustainLevel, release, vol, at, bus }. `at` = absolute start
-// time (music scheduler); default = now. `bus` = destination gain (default
-// _master).
-function Tone(o) {
+// Enveloped oscillator blip: type, start freq, glide-to freq (0/falsy = none),
+// decay time, release time, peak volume.
+function Tone(type, f0, f1, decay, release, vol) {
 	const c = getAC()
 	if (!c) return
-	const t0 = o.at == null ? c.currentTime : o.at
-	const vol = o.vol == null ? 0.25 : o.vol
-	const f0 = o.freq || 220
-	const f1 = o.freqEnd == null ? f0 : o.freqEnd
-	const a = o.attack == null ? 0.004 : o.attack
-	const d = o.decay == null ? 0.09 : o.decay
-	const s = o.sustain || 0
-	const sl = o.sustainLevel == null ? 0.35 : o.sustainLevel
-	const r = o.release == null ? 0.06 : o.release
-	const end = t0 + a + d + s + r
-
+	const t0 = c.currentTime
+	const a = 0.005
+	const end = t0 + a + decay + release
 	const g = c.createGain()
 	g.gain.setValueAtTime(0.0001, t0)
 	g.gain.linearRampToValueAtTime(vol, t0 + a)
-	g.gain.linearRampToValueAtTime(vol * sl, t0 + a + d)
-	g.gain.setValueAtTime(vol * sl, t0 + a + d + s)
+	g.gain.linearRampToValueAtTime(vol * 0.3, t0 + a + decay) // decay knee
 	g.gain.linearRampToValueAtTime(0.0001, end)
-	g.connect(o.bus || _master)
-
+	g.connect(_master)
 	const osc = c.createOscillator()
-	osc.type = o.type || 'square'
+	osc.type = type
 	osc.frequency.setValueAtTime(f0, t0)
-	if (f1 !== f0) osc.frequency.exponentialRampToValueAtTime(Mmax(1, f1), end)
+	if (f1) osc.frequency.exponentialRampToValueAtTime(Mmax(1, f1), end)
 	osc.connect(g)
 	osc.start(t0)
 	osc.stop(end + 0.02)
 }
 
-// A burst of filtered white noise - impacts, ticks, whooshes. `o`: { dur,
-// filter, cut, cutEnd, vol, at, bus }.
-function Noise(o) {
+// Filtered white-noise burst: duration, biquad type, cutoff, glide-to cutoff
+// (0/falsy = none), peak volume.
+function Noise(dur, filter, cut, cutEnd, vol) {
 	const c = getAC()
 	if (!c) return
-	const t0 = o.at == null ? c.currentTime : o.at
-	const dur = o.dur || 0.2
-	const n = (c.sampleRate * dur) | 0
+	const t0 = c.currentTime
+	const n = c.sampleRate * dur | 0
 	const buf = c.createBuffer(1, n, c.sampleRate)
 	const ch = buf.getChannelData(0)
 	for (let i = 0; i < n; i++) ch[i] = Mr() * 2 - 1
 	const src = c.createBufferSource()
 	src.buffer = buf
-
 	const filt = c.createBiquadFilter()
-	filt.type = o.filter || 'lowpass'
-	filt.frequency.setValueAtTime(o.cut || 1200, t0)
-	if (o.cutEnd) filt.frequency.exponentialRampToValueAtTime(o.cutEnd, t0 + dur)
-
+	filt.type = filter
+	filt.frequency.setValueAtTime(cut, t0)
+	if (cutEnd) filt.frequency.exponentialRampToValueAtTime(cutEnd, t0 + dur)
 	const g = c.createGain()
-	const vol = o.vol == null ? 0.25 : o.vol
 	g.gain.setValueAtTime(vol, t0)
 	g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur)
-
 	src.connect(filt)
 	filt.connect(g)
-	g.connect(o.bus || _master)
+	g.connect(_master)
 	src.start(t0)
 	src.stop(t0 + dur + 0.02)
 }
@@ -112,21 +94,21 @@ function Noise(o) {
 // ---- SFX presets ----
 
 const Sfx = {
-	click() { Tone({ type: 'square', freq: 520, freqEnd: 680, decay: 0.05, release: 0.03, vol: 0.12 }) },
-	build() { Tone({ type: 'sawtooth', freq: 170, freqEnd: 340, attack: 0.01, decay: 0.18, release: 0.12, vol: 0.16 }) },
-	hit() { Noise({ dur: 0.12, cut: 2200, cutEnd: 400, vol: 0.22 }) },
+	click() { Tone('square', 520, 680, 0.05, 0.03, 0.12) },
+	build() { Tone('sawtooth', 170, 340, 0.18, 0.12, 0.16) },
+	hit() { Noise(0.12, 'lowpass', 2200, 400, 0.22) },
 	explosion() {
-		Noise({ dur: 0.5, cut: 1500, cutEnd: 80, vol: 0.3 })
-		Tone({ type: 'triangle', freq: 130, freqEnd: 42, decay: 0.4, release: 0.22, vol: 0.22 })
+		Noise(0.5, 'lowpass', 1500, 80, 0.3)
+		Tone('triangle', 130, 42, 0.4, 0.22, 0.22)
 	},
-	jump() { Tone({ type: 'sawtooth', freq: 110, freqEnd: 900, attack: 0.02, decay: 0.5, release: 0.35, vol: 0.2 }) },
+	jump() { Tone('sawtooth', 110, 900, 0.5, 0.35, 0.2) },
 	hyperjump() {
-		Tone({ type: 'sawtooth', freq: 70, freqEnd: 1300, attack: 0.05, decay: 1.3, release: 0.7, vol: 0.22 })
-		Noise({ dur: 1.5, filter: 'bandpass', cut: 300, cutEnd: 3200, vol: 0.12 })
+		Tone('sawtooth', 70, 1300, 1.3, 0.7, 0.22)
+		Noise(1.5, 'bandpass', 300, 3200, 0.12)
 	},
 	death() {
-		Tone({ type: 'sawtooth', freq: 320, freqEnd: 40, decay: 1.1, release: 0.7, vol: 0.3 })
-		Noise({ dur: 1.1, cut: 900, cutEnd: 60, vol: 0.28 })
+		Tone('sawtooth', 320, 40, 1.1, 0.7, 0.3)
+		Noise(1.1, 'lowpass', 900, 60, 0.28)
 	}
 }
 
@@ -134,109 +116,21 @@ const Sfx = {
 // keys quoted - SHOOT_SFX[kind] is a dynamic lookup, closure ADVANCED renames
 // unquoted literal keys and the string lookup would miss.
 const SHOOT_SFX = {
-	'kinetic'() { Tone({ type: 'square', freq: 440, freqEnd: 120, decay: 0.09, release: 0.04, vol: 0.1 }) },
-	'plasma'() { Tone({ type: 'sawtooth', freq: 720, freqEnd: 240, decay: 0.14, release: 0.08, vol: 0.1 }) },
-	'rocket'() { Noise({ dur: 0.3, filter: 'bandpass', cut: 900, cutEnd: 200, vol: 0.12 }) }
+	'kinetic'() { Tone('square', 440, 120, 0.09, 0.04, 0.1) },
+	'plasma'() { Tone('sawtooth', 720, 240, 0.14, 0.08, 0.1) },
+	'rocket'() { Noise(0.3, 'bandpass', 900, 200, 0.12) }
 }
 function SfxShoot(kind) {
 	const f = SHOOT_SFX[kind]
 	if (f) f()
 }
 
-// ---- ambient music: slow ticking suspense ----
+// ---- ambient music ----
 //
-// A 16-step loop at a crawl. Two drones (root + a fifth, an unresolved/tense
-// interval) run continuously; the loop only sprinkles ticks (filtered-noise
-// blips), a downbeat thud, and sparse minor-key notes with a long tail.
-// Scheduled ~0.25s ahead on a 60ms pump so it stays steady without a per-sample
-// callback. Levels are deliberately low but kept out of the sub-bass so it's
-// still audible on laptop/phone speakers.
-const MUS_BPM = 60
-const MUS_STEPS = 16
-const MUS_TICK = [1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1]   // hi-tick pattern
-const MUS_NOTE = [0, -1, -1, -1, 7, -1, -1, -1, -1, -1, 3, -1, -1, -1, 10, -1] // semitones over the root, -1 = rest
-const MUS_ROOT = 110 // A2
-
-var _musicOn = false
-var _musTimer = 0
-var _musStep = 0
-var _musNext = 0
-var _drones = null
-
-function mkDrone(freq) {
-	const c = _ac
-	const osc = c.createOscillator()
-	osc.type = 'sawtooth'
-	osc.frequency.value = freq
-	const lp = c.createBiquadFilter()
-	lp.type = 'lowpass'
-	lp.frequency.value = 650 // keep it low but out of the "inaudible on laptop speakers" sub range
-	const g = c.createGain()
-	g.gain.setValueAtTime(0.0001, c.currentTime)
-	g.gain.linearRampToValueAtTime(0.13, c.currentTime + 2.5)
-	// very slow gain wobble so the pad "breathes"
-	const lfo = c.createOscillator()
-	lfo.frequency.value = 0.06
-	const lg = c.createGain()
-	lg.gain.value = 0.05
-	lfo.connect(lg)
-	lg.connect(g.gain)
-	osc.connect(lp)
-	lp.connect(g)
-	g.connect(_musicBus)
-	osc.start()
-	lfo.start()
-	return { osc, lfo, g }
-}
-
-function musStep(step, when) {
-	if (MUS_TICK[step]) Noise({ dur: 0.05, filter: 'bandpass', cut: 3200, vol: 0.09, at: when, bus: _musicBus })
-	const s = MUS_NOTE[step]
-	if (s >= 0) {
-		Tone({
-			type: 'triangle', freq: MUS_ROOT * Math.pow(2, s / 12 + 1), // an octave up so the notes read on small speakers
-			attack: 0.02, decay: 0.12, sustain: 0.15, sustainLevel: 0.5, release: 1.1,
-			vol: 0.08, at: when, bus: _musicBus
-		})
-	}
-	if (step === 0) Tone({ type: 'sine', freq: 55, decay: 0.5, release: 0.5, vol: 0.16, at: when, bus: _musicBus })
-}
-
-function musPump() {
-	const c = getAC()
-	if (!c || !_musicOn || c.state !== 'running') return
-	if (!_musNext) {
-		_musNext = c.currentTime + 0.1
-		_drones = [mkDrone(MUS_ROOT), mkDrone(MUS_ROOT * 1.5)] // root + a fifth = unresolved / tense
-	}
-	const dt = 60 / MUS_BPM / 4 // sixteenth-note step
-	while (_musNext < c.currentTime + 0.25) {
-		musStep(_musStep % MUS_STEPS, _musNext)
-		_musStep++
-		_musNext += dt
-	}
-}
-
-function MusicStart() {
-	if (_musicOn) return
-	getAC()
-	_musicOn = true
-	_musStep = 0
-	_musNext = 0 // set on the first running pump (may be suspended right now)
-	_musTimer = setInterval(musPump, 60)
-}
-
-function MusicStop() {
-	_musicOn = false
-	clearInterval(_musTimer)
-	if (_drones && _ac) {
-		const n = _ac.currentTime
-		for (const d of _drones) {
-			d.g.gain.cancelScheduledValues(n)
-			d.g.gain.linearRampToValueAtTime(0.0001, n + 0.7)
-			d.osc.stop(n + 0.8)
-			d.lfo.stop(n + 0.8)
-		}
-	}
-	_drones = null
-}
+// The 16-step ticking-suspense ambient (drones + LFO wobble + sparse minor
+// notes on a setInterval pump) was cut for size - it cost ~360 B zip and was
+// the least-finished part (see docs/sound.md, tasks block 5). MusicStart/Stop
+// stay as no-ops so menu_state / ship_state keep compiling and the track can
+// come back later without touching the call sites.
+function MusicStart() {}
+function MusicStop() {}
