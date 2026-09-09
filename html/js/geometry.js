@@ -11,15 +11,15 @@
 // cube-ish mesh below goes through this - one place for the boilerplate, one
 // copy of the cube face table.
 function MeshGen() {
-	const pts = [] // flat xyz; every 12 numbers = one quad
+	// one entry per quad: [p0, p1, p2, p3], each pN a live [x,y,z] (kept as
+	// points, not flattened - build() only reads them, and the shared cube
+	// tables are never mutated).
+	const quads = []
 	let mat = 0
 	const g = {
 		xf(m) { mat = m; return g },
 		quad(a, b, c, d) {
-			for (const p of [a, b, c, d]) {
-				const q = mat ? Mat4MulPoint(mat, p) : p
-				pts.push(q[0], q[1], q[2])
-			}
+			quads.push([a, b, c, d].map(p => mat ? Mat4MulPoint(mat, p) : p))
 			return g
 		},
 		// decode a mesh string (see docs/meshformat.md): 3 chars = a point,
@@ -34,13 +34,10 @@ function MeshGen() {
 		},
 		build() {
 			const positions = [], normals = [], indices = []
-			for (let q = 0; q < pts.length; q += 12) {
-				const p0 = [pts[q], pts[q + 1], pts[q + 2]]
-				const p1 = [pts[q + 3], pts[q + 4], pts[q + 5]]
-				const p2 = [pts[q + 6], pts[q + 7], pts[q + 8]]
-				const p3 = [pts[q + 9], pts[q + 10], pts[q + 11]]
+			for (let q = 0; q < quads.length; q++) {
+				const [p0, p1, p2, p3] = quads[q]
 				const n = NormV3(CrossV3(SubV3(p1, p0), SubV3(p2, p0)))
-				const base = positions.length / 3
+				const base = q * 4
 				for (const p of [p0, p1, p2, p3]) {
 					positions.push(p[0], p[1], p[2])
 					normals.push(n[0], n[1], n[2])

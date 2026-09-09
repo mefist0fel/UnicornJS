@@ -289,15 +289,24 @@ architecture.md фиксирует только форму (состояния/�
 формат в [shipformat.md](shipformat.md)): `<ширина><сетка ./#/W/M>|<координаты вспом. слотов>`.
 Тот же декодер обслуживает и вражеские корабли.
 
-**Граф модулей `MODULES`** — словарь `id → { name, slot, cost, to:[id...], viz?, schema?,
-stats?, ...боевые поля }`. `to` — рёбра: во что переделать (за `cost` металла; `cost 0` —
-базовый/пустой слот). Четыре непересекающихся графа по `slot`:
+**Граф модулей `MODULES`** — словарь `id → { name, cost, to:[id...], schema?, stats?,
+...боевые поля }`. **`id` — число** (константы `M_*` в `modules.js`, объявлены по порядку),
+и само число заменяет прежнее поле `viz`: `id < 0` — пустой базовый слот (ничего не рисуем),
+`id >= M_CORV` — корвет (корпус + пушка), иначе — одна пушка-кубик. Фреймы (`M_S1..`) лежат
+за корветами и никогда не бывают `moduleId` слота. Числовой ключ closure не манглит →
+`MODULES[id]` без кавычек (см. [build.md](build.md)); поля `slot`/`viz` убраны (`slot` не
+читался, `viz` выводится из диапазона). `to` — рёбра: во что переделать (за `cost` металла;
+`cost 0` — базовый/пустой слот). Четыре непересекающихся графа:
 
-- `SLOT_SHIP` (центральный) — фреймы `s1 → s2 → s3` (`schema` + базовые `stats`); установка
-  через `BuildShip(id)` меняет `currentShipId` и `rebuildSlots()`.
-- `SLOT_WEAPON` — `wslot → {kin,roc,pla}1 → …2 → …3`, разборка сразу в `wslot`.
-- `SLOT_DEFENSE` («модули») — `dslot → {shield → shield2, pd}`.
-- `SLOT_AUX` («поддержка») — `aslot → {corvKin, corvRoc, corvPd}`.
+- фреймы `M_S1 → M_S2 → M_S3` (`schema` + базовые `stats`); `BuildShip(id)` меняет
+  `currentShipId` и зовёт `rebuildSlots()`.
+- `SLOT_WEAPON` — `M_WSLOT → {KIN,ROC,PLA}1 → …2 → …3`, разборка сразу в `M_WSLOT`.
+- `SLOT_DEFENSE` («модули») — `M_DSLOT → {M_SHIELD → M_SHIELD2, M_PD}`.
+- `SLOT_AUX` («поддержка») — `M_ASLOT → {M_CORVKIN, M_CORVROC, M_CORVPD}`.
+
+Тип урона (`fireKind` на модуле и на оружии врага) — тоже число: `F_KIN`/`F_PLA`/`F_ROC`
+(0/1/2), индекс в массивы `FIRE_COLORS` / `SHIP_PROJ_SPEED` / `SHOOT_SFX`. Проверять наличие —
+`fireKind != null` (0 ложно).
 
 **Статы `shipStats`** — плоский массив (как `res`), индексируемый `STAT_HP` / `STAT_WEAPONS` /
 `STAT_MODULES` / `STAT_SUPPORTS` / `STAT_SHIELD`. `RebuildShipStats()` = базовые `stats`

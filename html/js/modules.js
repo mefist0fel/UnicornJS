@@ -20,7 +20,7 @@
 // the ship base + every installed module - that's how a shield module raises
 // shield capacity, an upgrade raises slot caps, etc. See docs/architecture.md.
 
-const SLOT_SHIP = 3
+// slot KIND (the `type` on a shipSlots entry) - distinct from a module id.
 const SLOT_WEAPON = 0
 const SLOT_DEFENSE = 1  // "modules": PD + shields
 const SLOT_AUX = 2      // "support": corvettes
@@ -36,66 +36,79 @@ const STAT_SHIELD = 4    // shield capacity (added to hp pool for now)
 const STAT_COUNT = 5
 
 var shipStats = []
-var currentShipId = 's1'
 var shipHp = 500
 
-// projectile / muzzle colour per damage kind, shared by player and enemy fire.
-// KEYS ARE QUOTED: this object is looked up dynamically (FIRE_COLORS[kind]) and
-// closure ADVANCED renames unquoted literal keys, breaking the string lookup.
-// Same reason MODULES / SHIP_PROJ_SPEED / SHOOT_SFX quote their keys.
-const FIRE_COLORS = {
-	'kinetic': [1, 0.9, 0.4],
-	'plasma': [0.7, 0.35, 1],
-	'rocket': [1, 0.55, 0.15]
-}
+// Module ids are plain NUMBERS, declared here in order, and the number itself
+// carries what a `viz` field used to: id < 0 = an empty base slot (draw
+// nothing), id >= M_CORV = a corvette (body + gun cube), anything else = a
+// single gun cube. Ship frames (M_S1..) are never a slot's moduleId, they sit
+// past the corvettes. Numeric keys mean MODULES[id] needs no quoting to
+// survive closure ADVANCED (see docs/build.md) - the key can't be mangled.
+const M_WSLOT = -1, M_DSLOT = -2, M_ASLOT = -3
+const M_KIN1 = 0, M_KIN2 = 1, M_KIN3 = 2
+const M_ROC1 = 3, M_ROC2 = 4, M_ROC3 = 5
+const M_PLA1 = 6, M_PLA2 = 7, M_PLA3 = 8
+const M_SHIELD = 9, M_SHIELD2 = 10, M_PD = 11
+const M_CORV = 12 // ids >= this are corvettes (viz = body + gun)
+const M_CORVKIN = 12, M_CORVROC = 13, M_CORVPD = 14
+const M_S1 = 15, M_S2 = 16, M_S3 = 17
 
-// id -> { name, slot, cost, to:[id...], viz?, schema?, stats?, fireKind?,
-//         dmg?, rate?, intercept? }
-//   viz: null (nothing drawn) | 'gun' (small cube) | 'corvette' (body + gun)
+// fire kinds (were 'kinetic'/'plasma'/'rocket'); index straight into the
+// FIRE_COLORS / SHIP_PROJ_SPEED / SHOOT_SFX arrays.
+const F_KIN = 0, F_PLA = 1, F_ROC = 2
+
+var currentShipId = M_S1
+
+// projectile / muzzle colour per fire kind (F_KIN/F_PLA/F_ROC), player + enemy.
+const FIRE_COLORS = [[1, 0.9, 0.4], [0.7, 0.35, 1], [1, 0.55, 0.15]]
+
+// id -> { name, cost, to:[id...], schema?, stats?, fireKind?, dmg?, rate?,
+//         intercept?, buildTime? }. No `slot` (was never read) and no `viz`
+// (derived from the id range, see above). Keys are the M_* number constants.
 const MODULES = {
-	// --- ship frames (central slot). schema + stat baseline. ---
-	's1': {
-		name: 'Scout Frame', slot: SLOT_SHIP, cost: 0, to: ['s2'], buildTime: 5,
+	// --- weapons ---
+	[M_WSLOT]: { name: 'Weapon slot', cost: 0, to: [M_KIN1, M_ROC1, M_PLA1] },
+	[M_KIN1]: { name: 'Kinetic I', cost: 5, to: [M_KIN2, M_WSLOT], fireKind: F_KIN, dmg: 6, rate: 0.5 },
+	[M_KIN2]: { name: 'Kinetic II', cost: 6, to: [M_KIN3, M_WSLOT], fireKind: F_KIN, dmg: 9, rate: 0.45 },
+	[M_KIN3]: { name: 'Kinetic III', cost: 9, to: [M_WSLOT], fireKind: F_KIN, dmg: 13, rate: 0.4 },
+	[M_ROC1]: { name: 'Rocket I', cost: 5, to: [M_ROC2, M_WSLOT], fireKind: F_ROC, dmg: 16, rate: 1.6 },
+	[M_ROC2]: { name: 'Rocket II', cost: 6, to: [M_ROC3, M_WSLOT], fireKind: F_ROC, dmg: 22, rate: 1.5 },
+	[M_ROC3]: { name: 'Rocket III', cost: 9, to: [M_WSLOT], fireKind: F_ROC, dmg: 30, rate: 1.4 },
+	[M_PLA1]: { name: 'Plasma I', cost: 7, to: [M_PLA2, M_WSLOT], fireKind: F_PLA, dmg: 10, rate: 0.9 },
+	[M_PLA2]: { name: 'Plasma II', cost: 8, to: [M_PLA3, M_WSLOT], fireKind: F_PLA, dmg: 15, rate: 0.85 },
+	[M_PLA3]: { name: 'Plasma III', cost: 11, to: [M_WSLOT], fireKind: F_PLA, dmg: 21, rate: 0.8 },
+
+	// --- modules (PD + shields) ---
+	[M_DSLOT]: { name: 'Module slot', cost: 0, to: [M_SHIELD, M_PD] },
+	[M_SHIELD]: { name: 'Shield', cost: 6, to: [M_SHIELD2, M_DSLOT], stats: { [STAT_SHIELD]: 150 } },
+	[M_SHIELD2]: { name: 'Shield II', cost: 9, to: [M_DSLOT], stats: { [STAT_SHIELD]: 280 } },
+	[M_PD]: { name: 'Point Defense', cost: 6, to: [M_DSLOT], intercept: 0.35 },
+
+	// --- support ships (corvettes) ---
+	[M_ASLOT]: { name: 'Support slot', cost: 0, to: [M_CORVKIN, M_CORVROC, M_CORVPD] },
+	[M_CORVKIN]: { name: 'Kinetic Corvette', cost: 12, buildTime: 3.5, to: [M_ASLOT], fireKind: F_KIN, dmg: 8, rate: 0.5 },
+	[M_CORVROC]: { name: 'Rocket Corvette', cost: 14, buildTime: 3.5, to: [M_ASLOT], fireKind: F_ROC, dmg: 20, rate: 1.5 },
+	[M_CORVPD]: { name: 'PD Corvette', cost: 12, buildTime: 3.5, to: [M_ASLOT], intercept: 0.3 },
+
+	// --- ship frames (central slot). schema + stat baseline. col->x, row->z,
+	// row 0 = nose (-z, forward). ---
+	[M_S1]: {
+		name: 'Scout Frame', cost: 0, to: [M_S2], buildTime: 5,
 		schema: '3.#.MWM###.#.|1474',
 		stats: { [STAT_HP]: 500, [STAT_WEAPONS]: 1, [STAT_MODULES]: 2, [STAT_SUPPORTS]: 2 }
 	},
-	's2': {
-		// col->x, row->z, row 0 = nose (-z, forward). Symmetric arrow: 3 spine
-		// guns, 4 wing-root modules, 2 support slots on the sides.
-		name: 'Wing Frame', slot: SLOT_SHIP, cost: 30, to: ['s1', 's3'], buildTime: 5,
+	[M_S2]: {
+		// symmetric arrow: 3 spine guns, 4 wing-root modules, 2 support slots on the sides.
+		name: 'Wing Frame', cost: 30, to: [M_S1, M_S3], buildTime: 5,
 		schema: '5..W..M###M##W##M###M.#W#.|0484',
 		stats: { [STAT_HP]: 900, [STAT_WEAPONS]: 3, [STAT_MODULES]: 3, [STAT_SUPPORTS]: 2 }
 	},
-	's3': {
+	[M_S3]: {
 		// 5 guns (2 nose + spine + 2 tips), 4 wing modules, 3 support (2 sides + 1 rear).
-		name: 'Battle Frame', slot: SLOT_SHIP, cost: 60, to: ['s2'], buildTime: 5,
+		name: 'Battle Frame', cost: 60, to: [M_S2], buildTime: 5,
 		schema: '5.W.W.M#W#MW###WM###M.###.|048448',
 		stats: { [STAT_HP]: 1400, [STAT_WEAPONS]: 5, [STAT_MODULES]: 4, [STAT_SUPPORTS]: 3 }
-	},
-
-	// --- weapons ---
-	'wslot': { name: 'Weapon slot', slot: SLOT_WEAPON, cost: 0, to: ['kin1', 'roc1', 'pla1'], viz: null },
-	'kin1': { name: 'Kinetic I', slot: SLOT_WEAPON, cost: 5, to: ['kin2', 'wslot'], viz: 'gun', fireKind: 'kinetic', dmg: 6, rate: 0.5 },
-	'kin2': { name: 'Kinetic II', slot: SLOT_WEAPON, cost: 6, to: ['kin3', 'wslot'], viz: 'gun', fireKind: 'kinetic', dmg: 9, rate: 0.45 },
-	'kin3': { name: 'Kinetic III', slot: SLOT_WEAPON, cost: 9, to: ['wslot'], viz: 'gun', fireKind: 'kinetic', dmg: 13, rate: 0.4 },
-	'roc1': { name: 'Rocket I', slot: SLOT_WEAPON, cost: 5, to: ['roc2', 'wslot'], viz: 'gun', fireKind: 'rocket', dmg: 16, rate: 1.6 },
-	'roc2': { name: 'Rocket II', slot: SLOT_WEAPON, cost: 6, to: ['roc3', 'wslot'], viz: 'gun', fireKind: 'rocket', dmg: 22, rate: 1.5 },
-	'roc3': { name: 'Rocket III', slot: SLOT_WEAPON, cost: 9, to: ['wslot'], viz: 'gun', fireKind: 'rocket', dmg: 30, rate: 1.4 },
-	'pla1': { name: 'Plasma I', slot: SLOT_WEAPON, cost: 7, to: ['pla2', 'wslot'], viz: 'gun', fireKind: 'plasma', dmg: 10, rate: 0.9 },
-	'pla2': { name: 'Plasma II', slot: SLOT_WEAPON, cost: 8, to: ['pla3', 'wslot'], viz: 'gun', fireKind: 'plasma', dmg: 15, rate: 0.85 },
-	'pla3': { name: 'Plasma III', slot: SLOT_WEAPON, cost: 11, to: ['wslot'], viz: 'gun', fireKind: 'plasma', dmg: 21, rate: 0.8 },
-
-	// --- modules (PD + shields) ---
-	'dslot': { name: 'Module slot', slot: SLOT_DEFENSE, cost: 0, to: ['shield', 'pd'], viz: null },
-	'shield': { name: 'Shield', slot: SLOT_DEFENSE, cost: 6, to: ['shield2', 'dslot'], viz: 'gun', stats: { [STAT_SHIELD]: 150 } },
-	'shield2': { name: 'Shield II', slot: SLOT_DEFENSE, cost: 9, to: ['dslot'], viz: 'gun', stats: { [STAT_SHIELD]: 280 } },
-	'pd': { name: 'Point Defense', slot: SLOT_DEFENSE, cost: 6, to: ['dslot'], viz: 'gun', intercept: 0.35 },
-
-	// --- support ships (corvettes) ---
-	'aslot': { name: 'Support slot', slot: SLOT_AUX, cost: 0, to: ['corvKin', 'corvRoc', 'corvPd'], viz: null },
-	'corvKin': { name: 'Kinetic Corvette', slot: SLOT_AUX, cost: 12, buildTime: 3.5, to: ['aslot'], viz: 'corvette', fireKind: 'kinetic', dmg: 8, rate: 0.5 },
-	'corvRoc': { name: 'Rocket Corvette', slot: SLOT_AUX, cost: 14, buildTime: 3.5, to: ['aslot'], viz: 'corvette', fireKind: 'rocket', dmg: 20, rate: 1.5 },
-	'corvPd': { name: 'PD Corvette', slot: SLOT_AUX, cost: 12, buildTime: 3.5, to: ['aslot'], viz: 'corvette', intercept: 0.3 }
+	}
 }
 
 // "<w><grid w*h>|<support pairs>" -> { w, h, cells, weapons, modules, supports }.
@@ -138,9 +151,9 @@ function rebuildSlots() {
 		const kept = prev.filter(s => s.type === type)
 		return list.map((pos, k) => ({ type, pos, base, moduleId: kept[k] ? kept[k].moduleId : base }))
 	}
-	shipSlots = mk(dec.weapons, SLOT_WEAPON, 'wslot')
-		.concat(mk(dec.modules, SLOT_DEFENSE, 'dslot'))
-		.concat(mk(dec.supports, SLOT_AUX, 'aslot'))
+	shipSlots = mk(dec.weapons, SLOT_WEAPON, M_WSLOT)
+		.concat(mk(dec.modules, SLOT_DEFENSE, M_DSLOT))
+		.concat(mk(dec.supports, SLOT_AUX, M_ASLOT))
 }
 
 function RebuildShipStats() {
@@ -153,7 +166,7 @@ function RebuildShipStats() {
 }
 
 function ResetShip() {
-	currentShipId = 's1'
+	currentShipId = M_S1
 	shipSlots = []
 	builds = []
 	rebuildSlots()
@@ -245,11 +258,11 @@ function PlayerTurrets() {
 	const t = []
 	for (const i of ActiveSlots(SLOT_WEAPON)) {
 		const m = MODULES[shipSlots[i].moduleId]
-		if (m.fireKind) t.push({ fireKind: m.fireKind, dmg: m.dmg, rate: m.rate, cd: Mr() * m.rate, from: AddV3(shipSlots[i].pos, V3(0, 0.45, 0)) })
+		if (m.fireKind != null) t.push({ fireKind: m.fireKind, dmg: m.dmg, rate: m.rate, cd: Mr() * m.rate, from: AddV3(shipSlots[i].pos, V3(0, 0.45, 0)) })
 	}
 	for (const i of ActiveSlots(SLOT_AUX)) {
 		const m = MODULES[shipSlots[i].moduleId]
-		if (m.fireKind) t.push({ fireKind: m.fireKind, dmg: m.dmg, rate: m.rate, cd: Mr() * m.rate, from: AddV3(shipSlots[i].pos, V3(0, 0.42, 0)) })
+		if (m.fireKind != null) t.push({ fireKind: m.fireKind, dmg: m.dmg, rate: m.rate, cd: Mr() * m.rate, from: AddV3(shipSlots[i].pos, V3(0, 0.42, 0)) })
 	}
 	return t
 }
@@ -270,7 +283,13 @@ function PlayerCells() {
 }
 
 function shipVizColor(m) {
-	return m.fireKind ? FIRE_COLORS[m.fireKind] : m.intercept ? [0.9, 0.9, 0.95] : [0.4, 0.85, 1]
+	return m.fireKind != null ? FIRE_COLORS[m.fireKind] : m.intercept ? [0.9, 0.9, 0.95] : [0.4, 0.85, 1]
+}
+
+// What to draw for a module in a slot, from its id range (replaces `viz`):
+// 0 = nothing (empty base slot), 1 = one gun cube, 2 = a corvette (body + gun).
+function SlotViz(id) {
+	return id < 0 ? 0 : id >= M_CORV ? 2 : 1
 }
 
 // The player's ship as a flat array of static cubes (hull cells + active
@@ -285,12 +304,14 @@ function CreateShipModelObjects() {
 	for (let i = 0; i < shipSlots.length; i++) {
 		if (ActiveSlots(shipSlots[i].type).indexOf(i) === -1) continue
 		const s = shipSlots[i]
+		const vk = SlotViz(s.moduleId)
+		if (!vk) continue
 		const m = MODULES[s.moduleId]
-		if (m.viz === 'gun') {
-			out.push(CreateCubeObject(V3(s.pos[0], 0.45, s.pos[2]), 0.28, shipVizColor(m)))
-		} else if (m.viz === 'corvette') {
+		if (vk === 2) {
 			out.push(CreateCubeObject(V3(s.pos[0], 0, s.pos[2]), 0.5, [0.7, 0.72, 0.8]))
 			out.push(CreateCubeObject(V3(s.pos[0], 0.42, s.pos[2]), 0.22, shipVizColor(m)))
+		} else {
+			out.push(CreateCubeObject(V3(s.pos[0], 0.45, s.pos[2]), 0.28, shipVizColor(m)))
 		}
 	}
 	return out
@@ -302,13 +323,13 @@ function CreateShipModelObjects() {
 // the schema's W cells. A Carrier also spawns `frig.count` mini-ships, each
 // its own grid + hp. See docs/battle.md.
 const ENEMY_ARCHETYPES = [
-	{ name: 'Raider', schema: '3.W.###.#.', hp: 150, weapons: [{ fireKind: 'kinetic', dmg: 7, rate: 0.5 }] },
-	{ name: 'Gunship', schema: '3W#W###.#.', hp: 170, weapons: [{ fireKind: 'plasma', dmg: 14, rate: 1.0 }, { fireKind: 'plasma', dmg: 14, rate: 1.15 }] },
-	{ name: 'Missile Boat', schema: '3.#.#W#.#.', hp: 120, weapons: [{ fireKind: 'rocket', dmg: 26, rate: 1.9 }] },
+	{ name: 'Raider', schema: '3.W.###.#.', hp: 150, weapons: [{ fireKind: F_KIN, dmg: 7, rate: 0.5 }] },
+	{ name: 'Gunship', schema: '3W#W###.#.', hp: 170, weapons: [{ fireKind: F_PLA, dmg: 14, rate: 1.0 }, { fireKind: F_PLA, dmg: 14, rate: 1.15 }] },
+	{ name: 'Missile Boat', schema: '3.#.#W#.#.', hp: 120, weapons: [{ fireKind: F_ROC, dmg: 26, rate: 1.9 }] },
 	{
 		name: 'Carrier', schema: '5.###..#W#.#####.#W#..###.', hp: 240,
-		weapons: [{ fireKind: 'rocket', dmg: 16, rate: 2.2 }, { fireKind: 'rocket', dmg: 16, rate: 2.4 }],
-		frig: { schema: '2W#.#', hp: 60, weapon: { fireKind: 'kinetic', dmg: 6, rate: 0.6 }, count: 2 }
+		weapons: [{ fireKind: F_ROC, dmg: 16, rate: 2.2 }, { fireKind: F_ROC, dmg: 16, rate: 2.4 }],
+		frig: { schema: '2W#.#', hp: 60, weapon: { fireKind: F_KIN, dmg: 6, rate: 0.6 }, count: 2 }
 	}
 ]
 

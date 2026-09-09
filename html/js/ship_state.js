@@ -13,7 +13,7 @@
 // heals the ship and (for a planet) clears its red marker. See docs/battle.md.
 
 const SHIP_ENEMY_DIST = 6
-const SHIP_PROJ_SPEED = { 'kinetic': 22, 'plasma': 16, 'rocket': 9 } // quoted: SHIP_PROJ_SPEED[kind] dynamic lookup, see FIRE_COLORS
+const SHIP_PROJ_SPEED = [22, 16, 9] // indexed by fire kind F_KIN/F_PLA/F_ROC
 const SHIP_EXPL_DUR = 0.35
 
 function CreateShipState(opts) {
@@ -68,13 +68,14 @@ function CreateShipState(opts) {
 		if (ActiveSlots(shipSlots[i].type).indexOf(i) === -1) return // inactive slot: nothing
 		const p = shipSlots[i].pos
 		const m = MODULES[shipSlots[i].moduleId]
-		if (m.viz === 'gun') {
+		const vk = SlotViz(shipSlots[i].moduleId)
+		if (vk === 1) {
 			const g = CreateCubeObject(V3(p[0], 0.45, p[2]), 0.14, shipVizColor(m))
 			g.radius = 0.3
 			g.onClick = () => selectSlot(i)
 			slotViz[i].push(g)
 			addLive(ctx, g)
-		} else if (m.viz === 'corvette') {
+		} else if (vk === 2) {
 			const body = CreateCubeObject(V3(p[0], 0, p[2]), 0.25, [0.7, 0.72, 0.8])
 			const gun = CreateCubeObject(V3(p[0], 0.42, p[2]), 0.11, shipVizColor(m))
 			gun.radius = 0.35
@@ -274,12 +275,12 @@ function CreateShipState(opts) {
 
 	function fireAt(ctx, from, aim, kind, dmg, hostile, apply) {
 		const start = V3(from[0], from[1], from[2])
-		const o = kind === 'plasma'
+		const o = kind === F_PLA
 			? CreateSphereObject(start, 0.18, FIRE_COLORS[kind], 6, 8)
-			: CreateCubeObject(start, kind === 'rocket' ? 0.22 : 0.14, FIRE_COLORS[kind])
+			: CreateCubeObject(start, kind === F_ROC ? 0.22 : 0.14, FIRE_COLORS[kind])
 		addLive(ctx, o)
 		let popAt = 0
-		if (hostile && kind === 'rocket' && Mr() < PlayerInterceptChance()) popAt = 0.15 + Mr() * 0.2
+		if (hostile && kind === F_ROC && Mr() < PlayerInterceptChance()) popAt = 0.15 + Mr() * 0.2
 		projectiles.push({ obj: o, pos: start, aim, dmg, speed: SHIP_PROJ_SPEED[kind], popAt, life: 0, apply })
 	}
 
@@ -347,7 +348,7 @@ function CreateShipState(opts) {
 			for (const s of [e].concat(e.frigates)) {
 				if (s.hp <= 0) continue
 				for (const w of s.weapons) {
-					if (!w.fireKind) continue
+					if (w.fireKind == null) continue
 					w.cd -= dt
 					if (w.cd <= 0) {
 						w.cd = w.rate
