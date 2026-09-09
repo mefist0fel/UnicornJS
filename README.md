@@ -9,6 +9,7 @@
 
 - [docs/tasks.md](docs/tasks.md) — бэклог крупных блоков работ (что сделано / в очереди)
 - [docs/concept.md](docs/concept.md) — концепт игры, игровой цикл, ресурсы, статус
+- [docs/design.md](docs/design.md) — дизайн и баланс: костяк забега, экономика, случайные события (предложение)
 - [docs/architecture.md](docs/architecture.md) — организация кода: стейт-машина, объекты, конвенции
 - [docs/camera.md](docs/camera.md) — орбитальная камера и её ограничители по сценам
 - [docs/ui.md](docs/ui.md) — система панелей/кнопок/баров (DOM-хак поверх WebGL)

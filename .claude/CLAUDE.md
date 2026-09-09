@@ -10,6 +10,7 @@
 - [README.md](../README.md) — обзор и ссылки
 - [docs/tasks.md](../docs/tasks.md) — бэклог крупных блоков работ (статусы `✅`/`⬜`)
 - [docs/concept.md](../docs/concept.md) — концепт игры (не финальный)
+- [docs/design.md](../docs/design.md) — дизайн/баланс: забег с целью, экономика, случайные события (предложение)
 - [docs/architecture.md](../docs/architecture.md) — стейт-машина, объекты, конвенции кода
 - [docs/camera.md](../docs/camera.md) — орбитальная камера и её ограничители
 - [docs/ui.md](../docs/ui.md) — DOM-панели/кнопки/бары поверх WebGL
