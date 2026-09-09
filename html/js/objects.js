@@ -140,7 +140,7 @@ function CreateStarfield(count = 180) {
 // The encoded cube's corners sit at +-1 rather than +-0.5, hence the extra
 // 0.5 scale factor to match the visual size of a hand-coded cube.
 function CreateShipObject(position, color, scale = 0.5) {
-	return CreateMeshObject(position, GenEncodedCubeMesh(), scale, color)
+	return CreateMeshObject(position, DecodeMeshString(CUBE_MESH), scale, color)
 }
 
 // A handful of small cubes evenly spaced on a circle, continuously

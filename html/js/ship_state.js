@@ -56,7 +56,7 @@ function CreateShipState(opts) {
 		const dec = DecodeShipSchema(MODULES[currentShipId].schema)
 		playerCells = dec.cells
 		for (const p of dec.cells) {
-			const cube = CreateCubeObject(V3(p[0], 0, p[2]), 0.5, [0.32, 0.34, 0.4])
+			const cube = CreateCubeObject(V3(p[0], 0, p[2]), 0.25, [0.32, 0.34, 0.4])
 			hullCubes.push(cube)
 			addLive(ctx, cube)
 		}
@@ -69,14 +69,14 @@ function CreateShipState(opts) {
 		const p = shipSlots[i].pos
 		const m = MODULES[shipSlots[i].moduleId]
 		if (m.viz === 'gun') {
-			const g = CreateCubeObject(V3(p[0], 0.45, p[2]), 0.28, shipVizColor(m))
+			const g = CreateCubeObject(V3(p[0], 0.45, p[2]), 0.14, shipVizColor(m))
 			g.radius = 0.3
 			g.onClick = () => selectSlot(i)
 			slotViz[i].push(g)
 			addLive(ctx, g)
 		} else if (m.viz === 'corvette') {
-			const body = CreateCubeObject(V3(p[0], 0, p[2]), 0.5, [0.7, 0.72, 0.8])
-			const gun = CreateCubeObject(V3(p[0], 0.42, p[2]), 0.22, shipVizColor(m))
+			const body = CreateCubeObject(V3(p[0], 0, p[2]), 0.25, [0.7, 0.72, 0.8])
+			const gun = CreateCubeObject(V3(p[0], 0.42, p[2]), 0.11, shipVizColor(m))
 			gun.radius = 0.35
 			gun.onClick = () => selectSlot(i)
 			slotViz[i].push(body, gun)
@@ -213,7 +213,7 @@ function CreateShipState(opts) {
 		const dec = DecodeShipSchema(schema)
 		const objs = []
 		for (const p of dec.cells) {
-			const o = CreateCubeObject(AddV3(at, p), 0.42, color)
+			const o = CreateCubeObject(AddV3(at, p), 0.21, color)
 			objs.push(o)
 			addLive(ctx, o)
 		}

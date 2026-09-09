@@ -65,6 +65,7 @@ function decP(s, i) { return (MeshCharVal(s, i) - 46) / 46 }
 // the zip grew +33 B - the 24 inline `[-.5,.5,.5]`-style literals are a regular
 // table that deflate already crushes, and `[ib,hb,Za,eb]` refs are higher
 // entropy. Left inline. See docs/optimization.md.
+// Not used
 const CUBE_QUADS = [
 	[[-.5, .5, .5], [.5, .5, .5], [.5, .5, -.5], [-.5, .5, -.5]],     // +Y
 	[[-.5, -.5, -.5], [.5, -.5, -.5], [.5, -.5, .5], [-.5, -.5, .5]], // -Y
@@ -73,9 +74,9 @@ const CUBE_QUADS = [
 	[[.5, -.5, .5], [.5, -.5, -.5], [.5, .5, -.5], [.5, .5, .5]],     // +X
 	[[-.5, -.5, -.5], [-.5, -.5, .5], [-.5, .5, .5], [-.5, .5, -.5]]  // -X
 ]
-function addCube(g) {
-	for (const q of CUBE_QUADS) g.quad(q[0], q[1], q[2], q[3])
-}
+// function addCube(g) {
+// 	for (const q of CUBE_QUADS) g.quad(q[0], q[1], q[2], q[3])
+// }
 
 function GenSphereMesh(latBands = 12, lonBands = 16) {
 	const positions = []
@@ -106,7 +107,8 @@ function GenSphereMesh(latBands = 12, lonBands = 16) {
 // before; the face table now lives in CUBE_QUADS.
 function GenCubeMesh() {
 	const g = MeshGen()
-	addCube(g)
+	//addCube(g)
+	g.str(CUBE_MESH)
 	return g.build()
 }
 
@@ -142,7 +144,8 @@ function GenRingOfCubes(seg, radius, size) {
 	for (let i = 0; i < seg; i++) {
 		const a = i * PI * 2 / seg
 		g.xf(Mat4TranslateScale([Mc(a) * radius, Ms(a) * radius, 0], size * 2))
-		addCube(g)
+		g.str(CUBE_MESH)
+		//addCube(g)
 	}
 	return g.build()
 }
@@ -194,6 +197,6 @@ function DecodeMeshString(s) {
 // same corner order as CUBE_QUADS - see docs/meshformat.md.
 const CUBE_MESH = ' ~~~~~~~  ~    ~  ~ ~  ~  ~~ ~~~~ ~~~      ~ ~~ ~ ~~  ~~ ~~~     ~ ~~ ~ '
 
-function GenEncodedCubeMesh() {
-	return DecodeMeshString(CUBE_MESH)
-}
+// function GenEncodedCubeMesh() {
+// 	return DecodeMeshString(CUBE_MESH)
+// }
