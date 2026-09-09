@@ -75,7 +75,7 @@ function CreateGalaxyState() {
 				minPhi: 0.2, maxPhi: PI / 2 - 0.05, minRadius: 12, maxRadius: 40, autoSpeed: 0,
 				panRect: { minX: -14, maxX: 14, minZ: -14, maxZ: 14 }
 			})
-			ctx.camera.position = V3()
+			ctx.camera.p = V3()
 			ctx.camera.setDist(26)
 			ctx.camera.phi = 1.0
 

@@ -176,5 +176,5 @@ function DecoVicinity(sys, body) {
 // Offset every deco part so the ship (origin) sits at `body`'s vicinity.
 function PlaceDeco(sys, body) {
 	const v = DecoVicinity(sys, body)
-	for (const p of sys.deco.parts) p.obj.position = SubV3(p.base, v)
+	for (const p of sys.deco.parts) p.obj.p = SubV3(p.base, v)
 }

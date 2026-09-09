@@ -53,13 +53,13 @@ function CreateSystemTravelState(onDone, fromBody, toBody) {
 			Sfx.jump()
 
 			ctx.camera.setConstraints({ minPhi: 0.1, maxPhi: 1.5, minRadius: R_TUCK, maxRadius: R_FAR, autoSpeed: 0 })
-			ctx.camera.position = V3()
+			ctx.camera.p = V3()
 			ctx.camera.theta = theta0
 			ctx.camera.phi = phi0
 			ctx.camera.setDist(R_FAR)
 
 			shipObjs = CreateShipModelObjects()
-			for (const o of shipObjs) o.base = o.position.slice()
+			for (const o of shipObjs) o.base = o.p.slice()
 
 			sys = GetSystem(ctx, currentStarIndex)
 			DecoSystem(ctx, sys)
@@ -105,14 +105,14 @@ function CreateSystemTravelState(onDone, fromBody, toBody) {
 
 			// ship yaws onto the heading during SWING_IN, then holds
 			const turnK = Mmin(1, t / SWING_IN)
-			for (const o of shipObjs) o.position = RotY(o.base, yaw * turnK)
+			for (const o of shipObjs) o.p = RotY(o.base, yaw * turnK)
 
 			// system slides only during the cruise: turn first, then fly, then arrive
 			let sl = Mmax(0, Mmin(1, (t - SWING_IN) / CRUISE))
 			sl = sl * sl * (3 - 2 * sl)
 			const offX = vFrom[0] + (vTo[0] - vFrom[0]) * sl
 			const offZ = vFrom[2] + (vTo[2] - vFrom[2]) * sl
-			for (const p of sys.deco.parts) p.obj.position = V3(p.base[0] - offX, p.base[1], p.base[2] - offZ)
+			for (const p of sys.deco.parts) p.obj.p = V3(p.base[0] - offX, p.base[1], p.base[2] - offZ)
 
 			// camera: tuck in behind the ship, hold, ease back to neutral
 			if (k === 1 && ctx.input.btn === 2) {
@@ -131,7 +131,7 @@ function CreateSystemTravelState(onDone, fromBody, toBody) {
 			for (const p of sparks) {
 				p.loc.d += dt * SPARK_SPEED
 				if (p.loc.d > BEHIND) p.loc = respawn()
-				p.position = sparkPos(p.loc)
+				p.p = sparkPos(p.loc)
 				p.color = [k, k, k]
 			}
 

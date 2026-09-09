@@ -47,10 +47,10 @@ function InitObjectRenderer() {
 // caller can animate it after creation - battle_state's hit-impact "explode"
 // effect (grow then shrink over its lifetime) is the one thing that needs
 // this; every other object just leaves it untouched after creation.
-function CreateMeshObject(position, mesh, scale, color, emissive) {
+function CreateMeshObject(p, mesh, scale, color, emissive) {
 	const buf = UploadMesh(mesh)
 	return {
-		position,
+		p, // position
 		scale,
 		color,
 		emissive: emissive || [0, 0, 0],
@@ -68,7 +68,7 @@ function CreateMeshObject(position, mesh, scale, color, emissive) {
 
 			gl.bindBuffer(GL_ELEMENT_ARRAY_BUFFER, buf.idxBuf)
 
-			const mvp = Mat4Multiply(viewProj, Mat4TranslateScale(this.position, this.scale))
+			const mvp = Mat4Multiply(viewProj, Mat4TranslateScale(this.p, this.scale))
 			gl.uniformMatrix4fv(objLoc.uMvp, false, mvp)
 			gl.uniform3fv(objLoc.uColor, this.color)
 			gl.uniform3fv(objLoc.uEmissive, this.emissive)
@@ -157,7 +157,7 @@ function CreateOrbitMarkers(count, size, color) {
 		update(center, radius, angle) {
 			for (let i = 0; i < count; i++) {
 				const a = angle + i * PI * 2 / count
-				objs[i].position = V3(center[0] + Mc(a) * radius, center[1], center[2] + Ms(a) * radius)
+				objs[i].p = V3(center[0] + Mc(a) * radius, center[1], center[2] + Ms(a) * radius)
 			}
 		}
 	}
@@ -219,10 +219,10 @@ function InitPlanetRenderer() {
 // rampTex is a ramp texture (GetRamp, texture.js). planeScale/offset/drift
 // are vec3 arrays; emissive is 0..1. Keeps .radius for picking and honors
 // this.scale in the model matrix, same as CreateMeshObject.
-function CreatePlanetObject(position, radius, rampTex, planeScale, offset, drift, emissive, latBands = 16, lonBands = 22) {
+function CreatePlanetObject(p, radius, rampTex, planeScale, offset, drift, emissive, latBands = 16, lonBands = 22) {
 	const buf = UploadMesh(GenSphereMesh(latBands, lonBands))
 	return {
-		position,
+		p,
 		scale: radius,
 		radius,
 		rampTex,
@@ -251,7 +251,7 @@ function CreatePlanetObject(position, radius, rampTex, planeScale, offset, drift
 			gl.bindTexture(GL_TEXTURE_2D, this.rampTex)
 			gl.uniform1i(planetLoc.uRamp, 1)
 
-			const model = Mat4TranslateScale(this.position, this.scale)
+			const model = Mat4TranslateScale(this.p, this.scale)
 			gl.uniformMatrix4fv(planetLoc.uMvp, false, Mat4Multiply(viewProj, model))
 			gl.uniformMatrix4fv(planetLoc.uModel, false, model)
 			gl.uniform3fv(planetLoc.uPlaneScale, this.planeScale)
@@ -286,7 +286,7 @@ function PickObject(camera, ndcX, ndcY, objects) {
 	for (let i = 0; i < objects.length; i++) {
 		const o = objects[i]
 		if (!o.onClick || !o.radius) continue
-		const t = IntersectSphere(ray.origin, ray.dir, o.position, o.radius)
+		const t = IntersectSphere(ray.origin, ray.dir, o.p, o.radius)
 		if (t !== null && t < closestT) {
 			closestT = t
 			closest = o

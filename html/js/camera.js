@@ -10,7 +10,7 @@ const ZERO_RECT = { minX: 0, maxX: 0, minZ: 0, maxZ: 0 }
 
 function CreateCamera() {
 	const cam = {
-		position: V3(),
+		p: V3(), // position
 		offset: V3(0, 0, 8),
 		rotMat: Mat4FromBasis(V3(1, 0, 0), V3(0, 1, 0), V3(0, 0, 1)),
 		theta: 0,
@@ -78,17 +78,17 @@ function CreateCamera() {
 			const a = planeHit(this.screenPointToRay(prev[0], prev[1]))
 			const b = planeHit(this.screenPointToRay(cur[0], cur[1]))
 			if (!a || !b) return
-			this.position[0] += a[0] - b[0]
-			this.position[2] += a[2] - b[2]
+			this.p[0] += a[0] - b[0]
+			this.p[2] += a[2] - b[2]
 			this.clampPan()
 		},
 
 		clampPan() {
 			const r = this.panRect
-			if (this.position[0] < r.minX) this.position[0] = r.minX
-			if (this.position[0] > r.maxX) this.position[0] = r.maxX
-			if (this.position[2] < r.minZ) this.position[2] = r.minZ
-			if (this.position[2] > r.maxZ) this.position[2] = r.maxZ
+			if (this.p[0] < r.minX) this.p[0] = r.minX
+			if (this.p[0] > r.maxX) this.p[0] = r.maxX
+			if (this.p[2] < r.minZ) this.p[2] = r.minZ
+			if (this.p[2] > r.maxZ) this.p[2] = r.maxZ
 		},
 
 		upd(dt) { // camera.update: rebuild rotMat/offset from theta/phi/zoomT
@@ -108,21 +108,21 @@ function CreateCamera() {
 		},
 
 		getEye() {
-			return AddV3(this.position, Mat4MulDir(this.rotMat, this.offset))
+			return AddV3(this.p, Mat4MulDir(this.rotMat, this.offset))
 		},
 
 		getBasis() {
 			const eye = this.getEye()
 			return {
 				eye,
-				forward: NormV3(SubV3(this.position, eye)),
+				forward: NormV3(SubV3(this.p, eye)),
 				right: V3(this.rotMat[0], this.rotMat[1], this.rotMat[2]),
 				up: V3(this.rotMat[4], this.rotMat[5], this.rotMat[6])
 			}
 		},
 
 		getViewProj() {
-			const view = Mat4LookAt(this.getEye(), this.position, V3(0, 1, 0))
+			const view = Mat4LookAt(this.getEye(), this.p, V3(0, 1, 0))
 			const proj = Mat4Perspective(this.fov, this.aspect, this.near, this.far)
 			return Mat4Multiply(proj, view)
 		},

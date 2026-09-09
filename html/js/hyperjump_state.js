@@ -44,7 +44,7 @@ function CreateHyperjumpState(onDone) {
 
 			// chase cam right behind the ship, on the tunnel axis, looking -z
 			ctx.camera.setConstraints({ minPhi: 0.05, maxPhi: PI - 0.05, minRadius: 5, maxRadius: 5, autoSpeed: 0 })
-			ctx.camera.position = V3()
+			ctx.camera.p = V3()
 			ctx.camera.theta = theta0
 			ctx.camera.phi = phi0
 			ctx.camera.setDist(5)
@@ -89,7 +89,7 @@ function CreateHyperjumpState(onDone) {
 				r.color = [c[0] * bright, c[1] * bright, c[2] * bright]
 				const bx = Ms(r.d * 0.18 + t * 1.3) * BEND
 				const by = Mc(r.d * 0.14 + t) * BEND
-				r.position = V3(bx, by, -r.d) // along the world z axis
+				r.p = V3(bx, by, -r.d) // along the world z axis
 			}
 
 			if (t > SWING_IN + CRUISE + SWING_BACK) SetState(onDone())

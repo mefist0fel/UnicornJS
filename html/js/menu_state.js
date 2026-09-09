@@ -11,7 +11,7 @@ function CreateMenuState() {
 			MusicStart() // silent until the Play click resumes the audio context
 
 			ctx.camera.setConstraints({ minPhi: 0.6, maxPhi: 0.6, minRadius: 10, maxRadius: 10, autoSpeed: 0.15 })
-			ctx.camera.position = V3()
+			ctx.camera.p = V3()
 			ctx.camera.theta = 0
 			ctx.camera.phi = 0.6
 			ctx.camera.setDist(10)

@@ -27,7 +27,7 @@ function CreateSystemState() {
 	let eventMarkers = [] // [{ marker, planet }]
 	let markerAngle = 0
 
-	function tgtPos(t) { return t === PARK_STAR ? V3() : t.object.position }
+	function tgtPos(t) { return t === PARK_STAR ? V3() : t.object.p }
 	function tgtRad(t) { return t === PARK_STAR ? sys.starRadius : t.radius }
 
 	function selectTarget(ctx, t) {
@@ -66,7 +66,7 @@ function CreateSystemState() {
 				minPhi: 0.15, maxPhi: PI / 2 - 0.05, minRadius: 4, maxRadius: 22, autoSpeed: 0,
 				panRect: { minX: -8, maxX: 8, minZ: -8, maxZ: 8 }
 			})
-			ctx.camera.position = V3()
+			ctx.camera.p = V3()
 			ctx.camera.setDist(13)
 			ctx.camera.phi = 0.85
 
@@ -84,7 +84,7 @@ function CreateSystemState() {
 				shipTarget = V3()
 				shipOrbitRadius = sys.starRadius * 2.6 + SYSTEM_SHIP_ORBIT_PAD
 			} else if (parked) {
-				shipTarget = parked.object.position
+				shipTarget = parked.object.p
 				shipOrbitRadius = parked.radius * 2.2 + SYSTEM_SHIP_ORBIT_PAD
 			} else {
 				shipTarget = V3()
@@ -128,17 +128,17 @@ function CreateSystemState() {
 			ApplyCameraInput(ctx, dt)
 
 			shipAngle += dt * SYSTEM_SHIP_SPEED
-			ship.position = V3(shipTarget[0] + Mc(shipAngle) * shipOrbitRadius, 0, shipTarget[2] + Ms(shipAngle) * shipOrbitRadius)
+			ship.p = V3(shipTarget[0] + Mc(shipAngle) * shipOrbitRadius, 0, shipTarget[2] + Ms(shipAngle) * shipOrbitRadius)
 
 			for (let i = 0; i < sys.planets.length; i++) {
 				const planet = sys.planets[i]
 				for (let m = 0; m < planet.moons.length; m++) {
 					const moon = planet.moons[m]
 					moon.angle += moon.speed * dt
-					moon.object.position = V3(
-						planet.object.position[0] + Mc(moon.angle) * moon.dist,
+					moon.object.p = V3(
+						planet.object.p[0] + Mc(moon.angle) * moon.dist,
 						0,
-						planet.object.position[2] + Ms(moon.angle) * moon.dist)
+						planet.object.p[2] + Ms(moon.angle) * moon.dist)
 				}
 			}
 
@@ -146,7 +146,7 @@ function CreateSystemState() {
 			if (selected) pickMarker.update(tgtPos(selectedTarget), tgtRad(selectedTarget) * (selectedTarget === PARK_STAR ? 1.7 : 1.3), markerAngle)
 			for (let i = 0; i < eventMarkers.length; i++) {
 				const em = eventMarkers[i]
-				em.marker.update(em.planet.object.position, em.planet.radius * 1.6, markerAngle + i)
+				em.marker.update(em.planet.object.p, em.planet.radius * 1.6, markerAngle + i)
 			}
 
 			if (ctx.input.clicked) {

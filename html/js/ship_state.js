@@ -322,7 +322,7 @@ function CreateShipState(opts) {
 				continue
 			}
 			p.pos = AddV3(p.pos, ScaleV3(NormV3(d), step))
-			p.obj.position = p.pos
+			p.obj.p = p.pos
 		}
 	}
 
@@ -418,7 +418,7 @@ function CreateShipState(opts) {
 				minPhi: 0.25, maxPhi: 1.4, minRadius: 8, maxRadius: 70, autoSpeed: 0,
 				panRect: { minX: -12, maxX: 12, minZ: -12, maxZ: 12 }
 			})
-			ctx.camera.position = V3()
+			ctx.camera.p = V3()
 			ctx.camera.theta = PI / 2
 			ctx.camera.phi = 0.8
 			ctx.camera.setDist(22)
