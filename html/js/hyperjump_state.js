@@ -1,12 +1,10 @@
-// Hyperjump transition: a "plasma" rainbow tunnel for star-to-star jumps.
-// Looks like ship_state - the real modular ship (CreateShipModelObjects) sits
-// at the origin facing -z - flying down a tunnel of dense concentric cube
-// rings (GenRingOfCubes) that runs along the WORLD z axis (the ship's forward
-// axis), not the camera's. Far rings (large +d, ahead) are black, take on
-// colour as they near, the hue freezes and they travel past and behind (d<0,
-// +z) then recycle to the far end. Walls bend gently. Nothing else is drawn.
-// Entered from galaxy_state's jump; onDone -> ship_state at the new star.
-// See docs/tasks.md (block 3).
+// Hyperjump transition: a rainbow "plasma tube" for star-to-star jumps. The
+// real ship (CreateShipModelObjects) sits at the origin facing -z; a long run
+// of thin rings (MeshGen.ring, standing on edge along -z) is coloured ONCE from
+// a rainbow gradient by index and slides bodily toward +z as one rigid tube -
+// it appears far ahead, flies at you, passes, and you're at the new star. No
+// per-frame recolour, no recycling. Entered from galaxy_state's jump; onDone ->
+// ship_state at the new star. See docs/tasks.md (block 3).
 
 // sine-wheel rainbow, h in turns (0..1 = full wheel)
 function Rainbow(h) {
@@ -15,43 +13,38 @@ function Rainbow(h) {
 }
 
 function CreateHyperjumpState(onDone) {
-	const ROWS = 34
-	const GAP = 0.92
-	const SPAN = ROWS * GAP
-	const AHEAD = 1.5 // nearest ring's start distance ahead (along -z)
-	const BEHIND = 6  // recycle once a ring is this far behind (+z)
-	const TOTAL = SPAN + AHEAD + BEHIND
-	const SPEED = 16
-	const LOCK_D = 4  // hue freezes once a ring is within this of the ship
-	const HUE_K = 0.15
-	const BEND = 0.35
-	const SWING_IN = 0.4
-	const CRUISE = 2.4
-	const SWING_BACK = 0.4
+	const RINGS = 26
+	const GAP = 1.3
+	const TUNNEL_R = 2.6
+	const AHEAD = 9        // nearest ring starts this far ahead (-z)
+	const BEHIND = 12      // done once the whole run has passed this far behind (+z)
+	const SPEED = 14
+	const DUR = (RINGS * GAP + AHEAD + BEHIND) / SPEED
 
 	let t = 0
 	let mine = []
-	let rows = []
-	let theta0 = 90    // yaw, deg - camera behind the ship looking -z
-	let pitch0 = 5     // near-horizon, looking straight down the throat
+	let rings = []
 
 	return {
 		OnEnter(ctx) {
 			t = 0
 			mine = []
-			rows = []
+			rings = []
 			Sfx.hyperjump()
 
 			// chase cam right behind the ship, on the tunnel axis, looking -z
 			ctx.camera.setConstraints(5, 5, 0, -85, 85)
-			ctx.camera.place(V3(), 5, pitch0, theta0)
+			ctx.camera.place(V3(), 5, 4, 90)
 
 			for (const o of CreateShipModelObjects()) mine.push(o)
-			for (let i = 0; i < ROWS; i++) {
-				const r = CreateMeshObject(V3(), GenRingOfCubes(34, 2.1, 0.14), 1, [0, 0, 0])
-				r.d = AHEAD + i * GAP // signed distance ahead along -z (d<0 = behind, +z)
-				r.hue = r.d * HUE_K
-				rows.push(r)
+
+			// one ring mesh, coloured per-instance from the gradient
+			const ringMesh = MeshGen().ring(28, 0.78, 1).build()
+			for (let i = 0; i < RINGS; i++) {
+				const r = CreateMeshObject(V3(), ringMesh, TUNNEL_R, Rainbow(i / RINGS))
+				r.emissive = r.color // self-lit -> reads as plasma, not a dim disc
+				r.d0 = AHEAD + i * GAP // fixed offset along -z from the tube's head
+				rings.push(r)
 				mine.push(r)
 			}
 			PushObjects(ctx, mine)
@@ -59,37 +52,20 @@ function CreateHyperjumpState(onDone) {
 			CreatePanel('Hyperjump...', 'top')
 		},
 
-		OnExit(ctx) {
-			RemoveObjects(ctx, mine)
-		},
+		OnExit(ctx) { RemoveObjects(ctx, mine) },
 
 		OnUpdate(ctx, dt) {
 			t += dt
+			const head = t * SPEED // how far the tube's head has travelled toward +z
+			for (const r of rings) r.p = V3(0, 0, head - r.d0)
 
-			// 3-phase camera lean (small, not heading-based - ship always faces -z)
-			let k = 0
-			if (t < SWING_IN) k = t / SWING_IN
-			else if (t < SWING_IN + CRUISE) k = 1
-			else k = Mmax(0, 1 - (t - SWING_IN - CRUISE) / SWING_BACK)
-			ctx.camera.theta = LerpAngle(theta0, theta0 + 7.5, k) // gentle lean, stay near-axis
-			ctx.camera.pitch = pitch0 + 6 * k
+			// small camera lean: ease in over the first 30%, hold, ease back out
+			const k = Mmax(0, Mmin(t / (DUR * 0.3), (DUR - t) / (DUR * 0.3), 1))
+			ctx.camera.theta = 90 + 6 * k
+			ctx.camera.pitch = 4 + 5 * k
 			ctx.camera.upd(dt)
 
-			for (const r of rows) {
-				r.d -= dt * SPEED
-				if (r.d < -BEHIND) r.d += TOTAL
-				// hue tracks position (rainbow gradient) until close, then freezes
-				if (r.d > LOCK_D) r.hue = r.d * HUE_K + t * 0.06
-				let bright = Mmin(1, (SPAN - r.d) / (SPAN * 0.45)) // black far ahead
-				bright *= Mmin(1, (r.d + BEHIND) / 2)              // dim as it passes behind
-				const c = Rainbow(r.hue)
-				r.color = [c[0] * bright, c[1] * bright, c[2] * bright]
-				const bx = Ms(r.d * 0.18 + t * 1.3) * BEND
-				const by = Mc(r.d * 0.14 + t) * BEND
-				r.p = V3(bx, by, -r.d) // along the world z axis
-			}
-
-			if (t > SWING_IN + CRUISE + SWING_BACK) SetState(onDone())
+			if (t > DUR) SetState(onDone())
 		}
 	}
 }

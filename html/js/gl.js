@@ -158,6 +158,13 @@ function Mat4MulPoint(m, v) {
 	]
 }
 
+// X-axis rotation, `ang` radians. Only the mesh builder needs an off-Y rotation
+// (standing a flat ring on edge for the orbit lines); compose with Mat4Multiply.
+function Mat4RotX(ang) {
+	const s = Ms(ang), c = Mc(ang)
+	return F32([1, 0, 0, 0, 0, c, s, 0, 0, -s, c, 0, 0, 0, 0, 1])
+}
+
 // The one model matrix: translate * rotateY * scale (column-major). `rotY` in
 // radians, 0 by default -> the rotation block collapses to identity and the
 // result is byte-for-byte the old translate+scale. `scale` is a number

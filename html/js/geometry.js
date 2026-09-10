@@ -27,6 +27,20 @@ function MeshGen() {
 				[decP(s, i + 9), decP(s, i + 10), decP(s, i + 11)])
 			return g
 		},
+		// annulus in the local XY plane (normal +z), `detail` quads between radii
+		// inner..outer. xf(Mat4RotX(-PI/2)) stands it flat for an orbit line;
+		// left as-is it's a hyperjump-tube ring facing back down the -z axis.
+		ring(detail, inner, outer) {
+			for (let i = 0; i < detail; i++) {
+				const a = i * PI * 2 / detail, b = a + PI * 2 / detail
+				g.quad(
+					[Mc(a) * inner, Ms(a) * inner, 0],
+					[Mc(a) * outer, Ms(a) * outer, 0],
+					[Mc(b) * outer, Ms(b) * outer, 0],
+					[Mc(b) * inner, Ms(b) * inner, 0])
+			}
+			return g
+		},
 		build() {
 			const positions = [], normals = [], indices = []
 			for (let idx = 4; idx <= pts.length; idx += 4) {
@@ -49,7 +63,8 @@ function MeshGen() {
 function decP(s, i) { return (MeshCharVal(s, i) - 46) / 46 }
 
 // A cube is stamped from the CUBE_MESH string (see below) via g.str() - no
-// separate face table. GenCubeMesh / GenRingOfCubes / the starfield all do this.
+// separate face table. GenCubeMesh and the starfield both do this; rings come
+// from g.ring().
 
 function GenSphereMesh(latBands = 12, lonBands = 16) {
 	const positions = []
@@ -81,40 +96,11 @@ function GenCubeMesh() {
 	return MeshGen().str(CUBE_MESH).build()
 }
 
-// Flat annulus in the XZ plane, unit outer radius, used as an orbit line -
-// objects.js scales it by the orbit's actual radius, same as a sphere is
-// scaled by its radius. Only drawn from above/the side within roughly a
-// hemisphere (system_state's camera never dips below the ecliptic, see
-// docs/camera.md), so a single CCW winding (normal +Y) is enough - no need
-// to double it up for back-face visibility.
-function GenRingMesh(segments = 40, thickness = 0.008) {
-	const positions = []
-	const normals = []
-	const indices = []
-	for (let i = 0; i <= segments; i++) {
-		const a = i / segments * PI * 2
-		const c = Mc(a), s = Ms(a)
-		positions.push(c, 0, s, c * (1 - thickness), 0, s * (1 - thickness))
-		normals.push(0, 1, 0, 0, 1, 0)
-	}
-	for (let i = 0; i < segments; i++) {
-		const a = i * 2, b = a + 2
-		indices.push(a, a + 1, b, a + 1, b + 1, b)
-	}
-	return { positions, normals, indices }
-}
-
-// `seg` little cubes (half-extent `size`) evenly on a circle of `radius` in the
-// XY plane (so the ring faces down +Z, the hyperjump tunnel axis). Baked into
-// one mesh - a whole ring is a single object/draw-call/colour (hyperjump_state
-// moves and recolours rows of these).
-function GenRingOfCubes(seg, radius, size) {
-	const g = MeshGen()
-	for (let i = 0; i < seg; i++) {
-		const a = i * PI * 2 / seg
-		g.xf(Mat4Model([Mc(a) * radius, Ms(a) * radius, 0], size * 2)).str(CUBE_MESH)
-	}
-	return g.build()
+// Thin flat annulus for an orbit line: MeshGen.ring() laid flat (normal +Y).
+// Unit outer radius; objects.js scales by the orbit's real radius. Single
+// winding is fine - system_state's camera stays above the ecliptic.
+function GenRingMesh(detail = 40, thickness = 0.008) {
+	return MeshGen().xf(Mat4RotX(-PI / 2)).ring(detail, 1 - thickness, 1).build()
 }
 
 // ---- string-encoded meshes / data ----
