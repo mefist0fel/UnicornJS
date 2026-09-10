@@ -62,13 +62,8 @@ function CreateSystemState() {
 
 	return {
 		OnEnter(ctx) {
-			ctx.camera.setConstraints({
-				minPhi: 0.15, maxPhi: PI / 2 - 0.05, minRadius: 4, maxRadius: 22, autoSpeed: 0,
-				panRect: { minX: -8, maxX: 8, minZ: -8, maxZ: 8 }
-			})
-			ctx.camera.p = V3()
-			ctx.camera.setDist(13)
-			ctx.camera.phi = 0.85
+			ctx.camera.setConstraints(4, 22, 8)
+			ctx.camera.place(V3(), 13, 41)
 
 			sys = GetSystem(ctx, currentStarIndex)
 			mine = [sys.star]

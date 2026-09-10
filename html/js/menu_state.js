@@ -10,11 +10,9 @@ function CreateMenuState() {
 		OnEnter(ctx) {
 			MusicStart() // silent until the Play click resumes the audio context
 
-			ctx.camera.setConstraints({ minPhi: 0.6, maxPhi: 0.6, minRadius: 10, maxRadius: 10, autoSpeed: 0.15 })
-			ctx.camera.p = V3()
-			ctx.camera.theta = 0
-			ctx.camera.phi = 0.6
-			ctx.camera.setDist(10)
+			ctx.camera.setConstraints(10, 10, 0, 56, 56) // pitch pinned at 56
+			ctx.camera.autoSpeed = 9 // slow showcase spin, deg/sec
+			ctx.camera.place(V3(), 10, 56, 0)
 
 			const sunType = STAR_ARCHETYPES[2] // yellow
 			const sun = CreatePlanetObject(V3(), 2, GetRamp(sunType.ramp), sunType.planeScale, V3(), sunType.drift, 1)

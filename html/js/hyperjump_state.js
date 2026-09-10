@@ -32,8 +32,8 @@ function CreateHyperjumpState(onDone) {
 	let t = 0
 	let mine = []
 	let rows = []
-	let theta0 = PI / 2
-	let phi0 = PI / 2 - 0.08 // on-axis, tiny downtilt - looking straight down the throat
+	let theta0 = 90    // yaw, deg - camera behind the ship looking -z
+	let pitch0 = 5     // near-horizon, looking straight down the throat
 
 	return {
 		OnEnter(ctx) {
@@ -43,11 +43,8 @@ function CreateHyperjumpState(onDone) {
 			Sfx.hyperjump()
 
 			// chase cam right behind the ship, on the tunnel axis, looking -z
-			ctx.camera.setConstraints({ minPhi: 0.05, maxPhi: PI - 0.05, minRadius: 5, maxRadius: 5, autoSpeed: 0 })
-			ctx.camera.p = V3()
-			ctx.camera.theta = theta0
-			ctx.camera.phi = phi0
-			ctx.camera.setDist(5)
+			ctx.camera.setConstraints(5, 5, 0, -85, 85)
+			ctx.camera.place(V3(), 5, pitch0, theta0)
 
 			for (const o of CreateShipModelObjects()) mine.push(o)
 			for (let i = 0; i < ROWS; i++) {
@@ -74,8 +71,8 @@ function CreateHyperjumpState(onDone) {
 			if (t < SWING_IN) k = t / SWING_IN
 			else if (t < SWING_IN + CRUISE) k = 1
 			else k = Mmax(0, 1 - (t - SWING_IN - CRUISE) / SWING_BACK)
-			ctx.camera.theta = LerpAngle(theta0, theta0 + 0.13, k) // gentle lean, stay near-axis
-			ctx.camera.phi = phi0 - 0.1 * k
+			ctx.camera.theta = LerpAngle(theta0, theta0 + 7.5, k) // gentle lean, stay near-axis
+			ctx.camera.pitch = pitch0 + 6 * k
 			ctx.camera.upd(dt)
 
 			for (const r of rows) {

@@ -71,13 +71,8 @@ function CreateGalaxyState() {
 
 	return {
 		OnEnter(ctx) {
-			ctx.camera.setConstraints({
-				minPhi: 0.2, maxPhi: PI / 2 - 0.05, minRadius: 12, maxRadius: 40, autoSpeed: 0,
-				panRect: { minX: -14, maxX: 14, minZ: -14, maxZ: 14 }
-			})
-			ctx.camera.p = V3()
-			ctx.camera.setDist(26)
-			ctx.camera.phi = 1.0
+			ctx.camera.setConstraints(12, 40, 14)
+			ctx.camera.place(V3(), 26, 33)
 
 			markerAngle = 0
 			selectedStarIndex = -1
@@ -96,7 +91,7 @@ function CreateGalaxyState() {
 			}
 
 			btn = null
-			CreatePanel('Star map - pick a system to jump to', 'top')
+			CreatePanel('Star map - pick a system to jump', 'top')
 		},
 
 		OnExit(ctx) {

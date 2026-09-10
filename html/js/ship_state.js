@@ -228,7 +228,7 @@ function CreateShipState(opts = {}) {
 
 	function spawnEnemy(ctx, arch) {
 		// beyond the ship in the camera's forward arc so it lands on screen
-		const ang = ctx.camera.theta + PI + (Mr() - 0.5) * 1.4
+		const ang = ctx.camera.theta * DEG + PI + (Mr() - 0.5) * 1.4
 		const dist = SHIP_ENEMY_DIST + Mr() * 2
 		const at = V3(Mc(ang) * dist, 1.2 + Mr() * 1.5, Ms(ang) * dist)
 		const e = makeEnemyShip(ctx, arch.schema, arch.hp, arch.weapons, [0.9, 0.3, 0.3], at)
@@ -414,14 +414,8 @@ function CreateShipState(opts = {}) {
 			// a ~250-unit giant ~250-1300 units off to one side (see DecoVicinity).
 			// Pull-back range lets you frame the platform or take in the planet;
 			// pan stays inside the ~20-unit platform.
-			ctx.camera.setConstraints({
-				minPhi: 0.25, maxPhi: 1.4, minRadius: 8, maxRadius: 70, autoSpeed: 0,
-				panRect: { minX: -12, maxX: 12, minZ: -12, maxZ: 12 }
-			})
-			ctx.camera.p = V3()
-			ctx.camera.theta = PI / 2
-			ctx.camera.phi = 0.8
-			ctx.camera.setDist(22)
+			ctx.camera.setConstraints(8, 70, 12, -80, 80) // ship mode: full pitch range
+			ctx.camera.place(V3(), 22, 44, 90)
 
 			rebuildHull(ctx)
 			rebuildViz(ctx)

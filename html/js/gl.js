@@ -78,12 +78,12 @@ function RotY(v, ang) {
 	return [v[0] * c + v[2] * s, v[1], v[2] * c - v[0] * s]
 }
 
-// Interpolate angle a -> b along the shortest arc (used for the travel-state
-// camera swing, where theta can wrap past +-PI).
+// Interpolate angle a -> b along the shortest arc, in DEGREES (camera yaw is
+// degrees now; used for the travel-state camera swing where it can wrap 360).
 function LerpAngle(a, b, t) {
-	let d = (b - a) % (PI * 2)
-	if (d > PI) d -= PI * 2
-	if (d < -PI) d += PI * 2
+	let d = (b - a) % 360
+	if (d > 180) d -= 360
+	if (d < -180) d += 360
 	return a + d * t
 }
 function NormV3(a) {
@@ -158,21 +158,21 @@ function Mat4MulPoint(m, v) {
 	]
 }
 
-// Objects never rotate, so a plain translate+scale model matrix is enough -
-// no general TRS compose needed. `scale` is a number (uniform) in almost
-// every call site; battle_state's laser beam is the one exception that
-// needs a stretched box (long on X, thin on Y/Z) and passes a [sx,sy,sz]
-// array instead - `.length` is enough to tell the two apart since numbers
-// don't have one. Defaults (offset 0, scale 1) give the identity matrix, so
-// Mat4TranslateScale() is the mesh builder's "no transform yet" seed.
-function Mat4TranslateScale(position = [0, 0, 0], scale = 1) {
+// The one model matrix: translate * rotateY * scale (column-major). `rotY` in
+// radians, 0 by default -> the rotation block collapses to identity and the
+// result is byte-for-byte the old translate+scale. `scale` is a number
+// (uniform) almost everywhere; a [sx,sy,sz] array still works (spark streaks)
+// - `.length` tells them apart since numbers have none. Defaults give the
+// identity matrix, so Mat4Model() is the mesh builder's "no transform" seed.
+function Mat4Model(position = [0, 0, 0], scale = 1, rotY = 0) {
 	const sx = scale.length ? scale[0] : scale
 	const sy = scale.length ? scale[1] : scale
 	const sz = scale.length ? scale[2] : scale
+	const c = Mc(rotY), s = Ms(rotY)
 	return F32([
-		sx, 0, 0, 0,
+		c * sx, 0, -s * sx, 0,
 		0, sy, 0, 0,
-		0, 0, sz, 0,
+		s * sz, 0, c * sz, 0,
 		position[0], position[1], position[2], 1
 	])
 }

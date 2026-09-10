@@ -15,8 +15,8 @@ InitPlanetRenderer()
 InitUI()
 InitResHud()
 
-// Star-sky backdrop: built once, drawn every frame behind ctx.objects,
-// never owned by a state (see CreateStarfield in objects.js).
+// Star-sky backdrop: one mesh, built once, drawn every frame behind
+// ctx.objects, never owned by a state (see CreateStarfield in objects.js).
 const starfield = CreateStarfield()
 
 // Switching state is just swapping currentState for another state instance;
@@ -55,12 +55,10 @@ function Frame(now) {
 	camEyePos = ctx.camera.getEye() // read by the planet shader (rim light), see objects.js
 	gTime = now / 1000 // read by the planet shader (drift animation)
 	const viewProj = ctx.camera.getViewProj()
-	// starfield is a skybox: re-centre the shell on the eye so it never shifts
-	// relative to the view, however far the true-scale system travels.
-	for (let i = 0; i < starfield.length; i++) {
-		starfield[i].p = AddV3(starfield[i].basePos, camEyePos)
-		starfield[i].render(viewProj)
-	}
+	// skybox: park the shell on the eye so it never shifts relative to the view,
+	// however far the true-scale system travels.
+	starfield.p = camEyePos
+	starfield.render(viewProj)
 	for (let i = 0; i < ctx.objects.length; i++) ctx.objects[i].render(viewProj)
 
 	ctx.input.update()

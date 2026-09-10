@@ -12,7 +12,7 @@
 // boilerplate, one copy of the cube face table.
 function MeshGen() {
 	const pts = []                  // flat list of [x,y,z], 4 per quad
-	let mat = Mat4TranslateScale()  // identity until xf() sets one
+	let mat = Mat4Model()  // identity until xf() sets one
 	const g = {
 		xf(m) { mat = m; return g },
 		addPoint(p) { pts.push(Mat4MulPoint(mat, p)); return g },
@@ -48,27 +48,8 @@ function MeshGen() {
 // signed coord in -1..1 for char i of a mesh string (MeshCharVal is below).
 function decP(s, i) { return (MeshCharVal(s, i) - 46) / 46 }
 
-// One unit cube: 6 quads, each wound CCW seen from outside, corners at +-0.5.
-// The single source of truth for "a cube" - GenCubeMesh and GenRingOfCubes
-// both stamp this through MeshGen.
-//
-// Tried naming the 8 corners as shared consts and referencing them here: closure
-// keeps the consts (doesn't inline) so the minified bundle shrinks ~18 B, but
-// the zip grew +33 B - the 24 inline `[-.5,.5,.5]`-style literals are a regular
-// table that deflate already crushes, and `[ib,hb,Za,eb]` refs are higher
-// entropy. Left inline. See docs/optimization.md.
-// Not used
-const CUBE_QUADS = [
-	[[-.5, .5, .5], [.5, .5, .5], [.5, .5, -.5], [-.5, .5, -.5]],     // +Y
-	[[-.5, -.5, -.5], [.5, -.5, -.5], [.5, -.5, .5], [-.5, -.5, .5]], // -Y
-	[[-.5, -.5, .5], [.5, -.5, .5], [.5, .5, .5], [-.5, .5, .5]],     // +Z
-	[[.5, -.5, -.5], [-.5, -.5, -.5], [-.5, .5, -.5], [.5, .5, -.5]], // -Z
-	[[.5, -.5, .5], [.5, -.5, -.5], [.5, .5, -.5], [.5, .5, .5]],     // +X
-	[[-.5, -.5, -.5], [-.5, -.5, .5], [-.5, .5, .5], [-.5, .5, -.5]]  // -X
-]
-// function addCube(g) {
-// 	for (const q of CUBE_QUADS) g.quad(q[0], q[1], q[2], q[3])
-// }
+// A cube is stamped from the CUBE_MESH string (see below) via g.str() - no
+// separate face table. GenCubeMesh / GenRingOfCubes / the starfield all do this.
 
 function GenSphereMesh(latBands = 12, lonBands = 16) {
 	const positions = []
@@ -95,13 +76,9 @@ function GenSphereMesh(latBands = 12, lonBands = 16) {
 	return { positions, normals, indices }
 }
 
-// Unit cube, ±0.5 corners, 24 verts (flat per-face normals). Same output as
-// before; the face table now lives in CUBE_QUADS.
+// Unit cube, ±0.5 corners, 24 verts (flat per-face normals).
 function GenCubeMesh() {
-	const g = MeshGen()
-	//addCube(g)
-	g.str(CUBE_MESH)
-	return g.build()
+	return MeshGen().str(CUBE_MESH).build()
 }
 
 // Flat annulus in the XZ plane, unit outer radius, used as an orbit line -
@@ -135,9 +112,7 @@ function GenRingOfCubes(seg, radius, size) {
 	const g = MeshGen()
 	for (let i = 0; i < seg; i++) {
 		const a = i * PI * 2 / seg
-		g.xf(Mat4TranslateScale([Mc(a) * radius, Ms(a) * radius, 0], size * 2))
-		g.str(CUBE_MESH)
-		//addCube(g)
+		g.xf(Mat4Model([Mc(a) * radius, Ms(a) * radius, 0], size * 2)).str(CUBE_MESH)
 	}
 	return g.build()
 }

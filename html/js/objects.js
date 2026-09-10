@@ -52,6 +52,7 @@ function CreateMeshObject(p, mesh, scale, color, emissive = 0) {
 	return {
 		p, // position
 		scale,
+		rotY: 0, // Y rotation in radians; animate it directly, see Mat4Model
 		color,
 		emissive: emissive || [0, 0, 0],
 		onClick: null,
@@ -68,7 +69,7 @@ function CreateMeshObject(p, mesh, scale, color, emissive = 0) {
 
 			gl.bindBuffer(GL_ELEMENT_ARRAY_BUFFER, buf.idxBuf)
 
-			const mvp = Mat4Multiply(viewProj, Mat4TranslateScale(this.p, this.scale))
+			const mvp = Mat4Multiply(viewProj, Mat4Model(this.p, this.scale, this.rotY))
 			gl.uniformMatrix4fv(objLoc.uMvp, false, mvp)
 			gl.uniform3fv(objLoc.uColor, this.color)
 			gl.uniform3fv(objLoc.uEmissive, this.emissive)
@@ -98,9 +99,8 @@ function CreateRingObject(position, radius, color) {
 
 // A flat thin ribbon lying in the y=0 plane between two world points - the
 // "reachable" line from the current star to the selected one (galaxy_state).
-// Both endpoints are baked into the mesh (model matrix stays identity), so no
-// rotation support in Mat4TranslateScale is needed. Double-wound so it's
-// visible from either side.
+// Both endpoints are baked into the mesh (model matrix stays identity), so
+// Mat4Model's rotation is unused here. Double-wound so it's visible from either side.
 function CreateLineObject(a, b, color, width = 0.09) {
 	const d = NormV3(SubV3(b, a))
 	const perp = ScaleV3(NormV3(V3(-d[2], 0, d[0])), width / 2)
@@ -113,26 +113,20 @@ function CreateLineObject(a, b, color, width = 0.09) {
 	return CreateMeshObject(V3(), { positions, normals, indices }, 1, color)
 }
 
-// A spherical shell of white cubes as the star-sky backdrop. Points are
-// sampled in a cube and kept only if MIN < |p| < R, so the result is roughly
-// uniform on the sphere. The shell sits far outside everything (R ~7500, past
-// the outer deco orbits) and its size is scaled to match, so apparent star
-// size is unchanged - and main.js re-centres it on the camera eye every frame,
-// making it an infinitely-distant skybox (zero parallax) rather than fixed
-// geometry the true-scale system could fly past. `basePos` is the shell-space
-// offset main.js adds the eye to. Rendered before ctx.objects, state-independent.
+// Star-sky backdrop: ONE mesh of `count` tiny cubes stamped onto a unit sphere
+// shell (rejection-sampled direction so there's no cube-corner bias), baked via
+// MeshGen. One CreateMeshObject, scaled to R=9000 - just inside the far plane
+// (10000), past every deco orbit. main.js still parks it on the camera eye each
+// frame (one assignment now, not 180): true "never move it" would need R in the
+// tens of thousands, which the fixed far plane / depth precision won't allow.
 function CreateStarfield(count = 180) {
-	const out = []
-	const R = 7500
-	while (out.length < count) {
-		const p = V3((Mr() * 2 - 1) * R, (Mr() * 2 - 1) * R, (Mr() * 2 - 1) * R)
-		const d = LenV3(p)
-		if (d < 5500 || d > R) continue
-		const o = CreateCubeObject(p, 10 + Mr() * Mr() * 45, [1, 1, 1])
-		o.basePos = p
-		out.push(o)
+	const g = MeshGen()
+	for (let i = 0; i < count; i++) {
+		const x = Mr() * 2 - 1, y = Mr() * 2 - 1, z = Mr() * 2 - 1
+		const d = Msqrt(x * x + y * y + z * z) || 1 // normalize onto the shell (slight cube-corner bunching is fine for a backdrop)
+		g.xf(Mat4Model([x / d, y / d, z / d], 0.0008 + Mr() * Mr() * 0.004)).str(CUBE_MESH)
 	}
-	return out
+	return CreateMeshObject(V3(), g.build(), 9000, [1, 1, 1])
 }
 
 // Ship marker - same "cube" shape as CreateCubeObject, but built from the
@@ -251,7 +245,7 @@ function CreatePlanetObject(p, radius, rampTex, planeScale, offset, drift, emiss
 			gl.bindTexture(GL_TEXTURE_2D, this.rampTex)
 			gl.uniform1i(planetLoc.uRamp, 1)
 
-			const model = Mat4TranslateScale(this.p, this.scale)
+			const model = Mat4Model(this.p, this.scale)
 			gl.uniformMatrix4fv(planetLoc.uMvp, false, Mat4Multiply(viewProj, model))
 			gl.uniformMatrix4fv(planetLoc.uModel, false, model)
 			gl.uniform3fv(planetLoc.uPlaneScale, this.planeScale)

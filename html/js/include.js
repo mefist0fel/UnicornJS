@@ -18,6 +18,11 @@ const Msqrt = Math.sqrt
 const Matan2 = Math.atan2
 const PI = Math.PI
 
+// degrees -> radians (camera angles are authored in degrees), and a clamp used
+// by every "keep this in range" check (camera limits, 0..1 zoom, pan box).
+const DEG = PI / 180
+function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v }
+
 // ---- WebGL 1 enum values ----
 // Fixed by the Khronos spec - identical in every implementation - so hardcode
 // them: `gl.ARRAY_BUFFER` is a 16-char property lookup closure can't rename

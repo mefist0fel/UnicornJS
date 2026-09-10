@@ -34,10 +34,10 @@ function CreateSystemTravelState(onDone, fromBody, toBody) {
 	let rightV = V3(1, 0, 0) // fwd turned +90 in xz - spark lateral spread
 	let yaw = 0             // rotates the ship's local -z nose onto fwd
 	let streakScale = [0.2, 0.2, 12]
-	let theta0 = PI / 2
-	let phi0 = 1.2
-	let camTheta = 0        // target azimuth: just behind the ship
-	let camPhi = 0
+	let theta0 = 90        // yaw, deg
+	let pitch0 = 21        // elevation above horizon, deg
+	let camTheta = 0       // target yaw: just behind the ship
+	let camPitch = 0
 
 	function respawn() {
 		return { d: -AHEAD * (0.25 + Mr() * 0.75), u: (Mr() * 2 - 1) * 45, s: (Mr() * 2 - 1) * 60 }
@@ -52,11 +52,8 @@ function CreateSystemTravelState(onDone, fromBody, toBody) {
 			t = 0
 			Sfx.jump()
 
-			ctx.camera.setConstraints({ minPhi: 0.1, maxPhi: 1.5, minRadius: R_TUCK, maxRadius: R_FAR, autoSpeed: 0 })
-			ctx.camera.p = V3()
-			ctx.camera.theta = theta0
-			ctx.camera.phi = phi0
-			ctx.camera.setDist(R_FAR)
+			ctx.camera.setConstraints(R_TUCK, R_FAR, 0, 4, 84)
+			ctx.camera.place(V3(), R_FAR, pitch0, theta0)
 
 			shipObjs = CreateShipModelObjects()
 			for (const o of shipObjs) o.base = o.p.slice()
@@ -73,8 +70,8 @@ function CreateSystemTravelState(onDone, fromBody, toBody) {
 			rightV = V3(-fwd[2], 0, fwd[0])
 			yaw = Matan2(-fwd[0], -fwd[2])                 // local -z -> fwd
 			streakScale = Ma(fwd[0]) > Ma(fwd[2]) ? [12, 0.2, 0.2] : [0.2, 0.2, 12]
-			camTheta = Matan2(-fwd[2], -fwd[0]) + 0.15     // sit just behind the ship, slight 3/4
-			camPhi = phi0 - 0.25
+			camTheta = Matan2(-fwd[2], -fwd[0]) / DEG + 9  // sit just behind the ship, slight 3/4
+			camPitch = pitch0 + 15
 
 			sparks = []
 			for (let i = 0; i < COUNT; i++) {
@@ -119,10 +116,10 @@ function CreateSystemTravelState(onDone, fromBody, toBody) {
 				ctx.camera.rot(-ctx.input.pdx * 2.5, -ctx.input.pdy * 2.5) // look around mid-cruise
 			} else if (k < 1 && t >= SWING_IN + CRUISE) {
 				ctx.camera.theta = LerpAngle(ctx.camera.theta, theta0, 0.12)
-				ctx.camera.phi += (phi0 - ctx.camera.phi) * 0.12
+				ctx.camera.pitch += (pitch0 - ctx.camera.pitch) * 0.12
 			} else {
 				ctx.camera.theta = LerpAngle(theta0, camTheta, k)
-				ctx.camera.phi = phi0 + (camPhi - phi0) * k
+				ctx.camera.pitch = pitch0 + (camPitch - pitch0) * k
 			}
 			ctx.camera.setDist(R_FAR + (R_TUCK - R_FAR) * k)
 			ctx.camera.upd(dt)

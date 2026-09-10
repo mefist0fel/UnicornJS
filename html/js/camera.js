@@ -1,79 +1,78 @@
 // Orbital camera. Like any object it has a position (the handle the camera
-// orbits - where the "center of coordinates" sits) plus an offset and a
-// rotation matrix: eye = position + rotMat * offset. theta/phi/radius are
-// the control state (driven by input/auto-rotate) that rotMat/offset are
-// rebuilt from every update(). RMB drag orbits (vertical inverted), LMB drag
-// pans `position` along the y=0 ground plane, clamped to panRect (an empty
-// Rect pins the camera at the center). See docs/camera.md for the reasoning.
-
-const ZERO_RECT = { minX: 0, maxX: 0, minZ: 0, maxZ: 0 }
+// orbits) plus an offset and a rotation matrix: eye = position + rotMat*offset.
+// `theta` (yaw) and `pitch` (elevation ABOVE the horizon) are in DEGREES;
+// `radius` comes from a 0..1 `zoomT`. RMB drag orbits (vertical inverted), LMB
+// drag pans `p` along the y=0 ground plane inside a square of half-extent
+// `panSize` (0 pins the camera at the centre). See docs/camera.md.
 
 function CreateCamera() {
 	const cam = {
-		p: V3(), // position
+		p: V3(), // orbit centre
 		offset: V3(0, 0, 8),
 		rotMat: Mat4FromBasis(V3(1, 0, 0), V3(0, 1, 0), V3(0, 0, 1)),
-		theta: 0,
-		phi: PI / 3,
-		// zoom is a normalised 0..1 "how far out" that the wheel nudges at a
-		// FIXED rate; `radius` is derived from it in update() as
-		// min + (max-min)*zoomT^2 - quadratic so a wheel notch barely moves the
-		// camera up close and sweeps a lot when already far out. States that
-		// think in world units call setDist(r) (back-solves zoomT).
+		theta: 0,     // yaw, degrees
+		pitch: 30,    // elevation above the horizon, degrees
+		// zoom is a normalised 0..1 "how far out" the wheel nudges at a FIXED
+		// rate; `radius` = min + (max-min)*zoomT^2 (quadratic) in upd(). States
+		// that think in world units call setDist(r).
 		zoomT: 0.5,
 		radius: 8,
-		minPhi: 0.05,
-		maxPhi: PI - 0.05,
+		minPitch: 10,
+		maxPitch: 80,
 		minRadius: 3,
 		maxRadius: 20,
-		autoSpeed: 0,
-		panRect: ZERO_RECT,
-		fov: 50 * PI / 180,
+		panSize: 0,   // half-extent of the square pan box (world units); 0 = pinned
+		autoSpeed: 0, // auto-orbit deg/sec; only menu_state opts in
+		fov: 50 * DEG,
 		aspect: 1,
-		// far has to clear the true-scale system drawn in ship_state /
-		// system_travel (a ~250-unit planet a few hundred units off, outer
-		// bodies ~3600 out, and the camera-locked starfield shell at ~7500).
-		// near is kept well above 0 for depth precision at that range - every
-		// scene keeps its close geometry past ~0.3 units.
+		// far clears the true-scale system in ship_state (outer bodies ~3600
+		// out, starfield shell ~9000); near stays well above 0 for depth
+		// precision at that range.
 		near: 0.3,
 		far: 10000,
 
-		// Called by state OnEnter() when entering a scene - swaps the limits,
-		// does not teleport the camera (out-of-range phi/radius/position just
-		// clamp on the next update()).
-		setConstraints(c) {
-			this.minPhi = c.minPhi
-			this.maxPhi = c.maxPhi
-			this.minRadius = c.minRadius
-			this.maxRadius = c.maxRadius
-			this.autoSpeed = c.autoSpeed || 0
-			this.panRect = c.panRect || ZERO_RECT
+		// Entering a scene: radius range, pan-box half-extent, pitch range
+		// (default 10..80 above the horizon; ship passes -80..80). Also resets
+		// autoSpeed to 0 - a state that wants the showcase spin sets it after.
+		// Doesn't teleport - out-of-range values clamp on the next upd().
+		setConstraints(minRad, maxRad, panSize, minPitch = 10, maxPitch = 80) {
+			this.minRadius = minRad
+			this.maxRadius = maxRad
+			this.panSize = panSize
+			this.minPitch = minPitch
+			this.maxPitch = maxPitch
+			this.autoSpeed = 0
+		},
+
+		// Point the camera for a scene in one call: orbit centre, distance
+		// (world units), pitch (deg), yaw (deg, defaults to the current yaw).
+		place(pos, dist, pitch, theta = this.theta) {
+			this.p = pos
+			this.pitch = pitch
+			this.theta = theta
+			this.setDist(dist)
 		},
 
 		// short names (rot/zm/upd): closure won't rename `.rotate`/`.zoom`/`.update`
-		// (DOM-extern collision), so we do it by hand - ~15 bytes. See optimization.md.
-		rot(dTheta, dPhi) { // camera.rotate
+		// (DOM-extern collision), so we do it by hand. See optimization.md.
+		rot(dTheta, dPitch) {
 			this.theta += dTheta
-			this.phi += dPhi
+			this.pitch += dPitch
 		},
 
-		zm(dZoom) { // camera.zoom - nudge the 0..1 zoomT
-			this.zoomT = Mmin(1, Mmax(0, this.zoomT + dZoom))
-		},
+		zm(dZoom) { this.zoomT = clamp(this.zoomT + dZoom, 0, 1) },
 
-		// set the camera distance in world units - converts to zoomT via the
-		// inverse of update()'s quadratic map. Call after setConstraints().
+		// world-unit distance -> zoomT (inverse of upd()'s quadratic map).
 		setDist(r) {
 			const span = this.maxRadius - this.minRadius
-			const q = span > 0 ? Mmin(1, Mmax(0, (r - this.minRadius) / span)) : 0
+			const q = span > 0 ? clamp((r - this.minRadius) / span, 0, 1) : 0
 			this.zoomT = Msqrt(q)
 			this.radius = this.minRadius + span * this.zoomT * this.zoomT
 		},
 
-		// Move the orbit center so the ground point grabbed by prevNDC ends up
-		// under curNDC - a "drag the map" pan. Both rays are intersected with
-		// the y=0 plane; if either misses (looking at/above the horizon) the
-		// frame's pan is skipped. Result is clamped to panRect.
+		// Move the orbit centre so the ground point under prevNDC ends up under
+		// curNDC - a "drag the map" pan. Rays hit the y=0 plane; if either
+		// misses (looking at/above the horizon) the frame's pan is skipped.
 		panFromScreen(prev, cur) {
 			const a = planeHit(this.screenPointToRay(prev[0], prev[1]))
 			const b = planeHit(this.screenPointToRay(cur[0], cur[1]))
@@ -84,23 +83,18 @@ function CreateCamera() {
 		},
 
 		clampPan() {
-			const r = this.panRect
-			if (this.p[0] < r.minX) this.p[0] = r.minX
-			if (this.p[0] > r.maxX) this.p[0] = r.maxX
-			if (this.p[2] < r.minZ) this.p[2] = r.minZ
-			if (this.p[2] > r.maxZ) this.p[2] = r.maxZ
+			this.p[0] = clamp(this.p[0], -this.panSize, this.panSize)
+			this.p[2] = clamp(this.p[2], -this.panSize, this.panSize)
 		},
 
-		upd(dt) { // camera.update: rebuild rotMat/offset from theta/phi/zoomT
+		upd(dt) { // rebuild rotMat/offset from theta/pitch/zoomT
 			if (this.autoSpeed) this.theta += this.autoSpeed * dt
-			if (this.phi < this.minPhi) this.phi = this.minPhi
-			if (this.phi > this.maxPhi) this.phi = this.maxPhi
-			// quadratic zoom: zoomT (0..1) -> distance, always within [min,max]
+			this.pitch = clamp(this.pitch, this.minPitch, this.maxPitch)
 			this.radius = this.minRadius + (this.maxRadius - this.minRadius) * this.zoomT * this.zoomT
 			this.clampPan()
 
-			const st = Ms(this.phi)
-			const back = V3(st * Mc(this.theta), Mc(this.phi), st * Ms(this.theta))
+			const th = this.theta * DEG, cp = Mc(this.pitch * DEG)
+			const back = V3(cp * Mc(th), Ms(this.pitch * DEG), cp * Ms(th))
 			const right = NormV3(CrossV3(V3(0, 1, 0), back))
 			const up = CrossV3(back, right)
 			this.rotMat = Mat4FromBasis(right, up, back)
@@ -155,9 +149,10 @@ function planeHit(ray) {
 // Shared camera input for the interactive scenes: RMB drag orbits (vertical
 // inverted - both deltas negated), LMB drag pans along the ground, wheel
 // zooms. Fixed-framing states (menu) just call camera.upd(dt) instead.
+// 143 deg per unit-drag ~= the old 2.5 rad.
 function ApplyCameraInput(ctx, dt) {
 	const inp = ctx.input
-	if (inp.btn === 2) ctx.camera.rot(-inp.pdx * 2.5, -inp.pdy * 2.5)
+	if (inp.btn === 2) ctx.camera.rot(-inp.pdx * 143, -inp.pdy * 143)
 	ctx.camera.zm(inp.wheel * 0.0005) // wheel -> fixed step on the 0..1 zoomT
 	ctx.camera.upd(dt)
 	if (inp.btn === 0) ctx.camera.panFromScreen([inp.px - inp.pdx, inp.py - inp.pdy], [inp.px, inp.py])
